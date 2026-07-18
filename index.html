@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>Mer Life 🧜‍♀️</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; touch-action: none;
+    font-family: 'Trebuchet MS', 'Comic Sans MS', system-ui, sans-serif;
+    background: #06364f; user-select: none; -webkit-user-select: none; }
+  #game { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  /* ---------- generic ---------- */
+  .hidden { display: none !important; }
+  button { font-family: inherit; cursor: pointer; border: none; }
+
+  /* ---------- Character creator ---------- */
+  #creator {
+    position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column;
+    justify-content: space-between; pointer-events: none; padding: max(10px, env(safe-area-inset-top)) 12px 12px;
+  }
+  #creator h1 {
+    text-align: center; color: #fff; font-size: clamp(28px, 6vw, 52px);
+    text-shadow: 0 3px 0 rgba(6,54,79,.7), 0 6px 18px rgba(0,0,0,.4);
+    letter-spacing: 2px; pointer-events: none;
+  }
+  #creator h1 span { color: #ffd76a; }
+  #creatorPanel {
+    pointer-events: auto; align-self: flex-start;
+    background: rgba(8, 44, 66, .78); backdrop-filter: blur(6px);
+    border: 2px solid rgba(255,255,255,.25); border-radius: 20px;
+    padding: 12px 14px; max-width: 340px; width: min(340px, 46vw);
+    max-height: 62vh; overflow-y: auto; color: #eafaff;
+  }
+  @media (max-width: 640px) {
+    #creatorPanel { width: auto; max-width: none; align-self: stretch; max-height: 46vh; }
+  }
+  #creatorPanel h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px;
+    color: #8fd8f2; margin: 10px 0 6px; }
+  #creatorPanel h3:first-child { margin-top: 0; }
+  .segmented { display: flex; flex-wrap: wrap; gap: 6px; }
+  .segmented button {
+    flex: 1 1 auto; padding: 8px 10px; border-radius: 12px; font-size: 14px; font-weight: 700;
+    background: rgba(255,255,255,.12); color: #eafaff; border: 2px solid transparent;
+  }
+  .segmented button.active { background: #ffd76a; color: #5b3b00; border-color: #fff; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 7px; }
+  .swatches .sw {
+    width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35);
+  }
+  .swatches .sw.active { border-color: #fff; box-shadow: 0 0 0 3px #ffd76a; transform: scale(1.1); }
+  .swatches input[type=color] {
+    width: 34px; height: 34px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.6);
+    background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); padding: 0;
+    -webkit-appearance: none; appearance: none; cursor: pointer;
+  }
+  .swatches input[type=color]::-webkit-color-swatch-wrapper { padding: 0; opacity: 0; }
+  #creatorBottom { display: flex; justify-content: center; pointer-events: none; }
+  #diveBtn {
+    pointer-events: auto;
+    font-size: clamp(20px, 4.5vw, 30px); font-weight: 800; letter-spacing: 1px;
+    padding: 14px 44px; border-radius: 999px; color: #043045;
+    background: linear-gradient(180deg, #7ef3d0, #2ec4b6);
+    border: 3px solid #fff; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; z-index: 10; pointer-events: none;
+    padding: max(10px, env(safe-area-inset-top)) 12px; }
+  #hearts { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 12px;
+    font-size: 26px; text-shadow: 0 2px 4px rgba(0,0,0,.5); letter-spacing: 2px; }
+  #coins { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 12px; margin-top: 34px;
+    background: rgba(8,44,66,.65); border-radius: 999px; padding: 4px 14px 4px 10px;
+    color: #ffd76a; font-weight: 800; font-size: 18px; }
+  #pearls { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 12px; margin-top: 72px;
+    background: rgba(8,44,66,.65); border-radius: 999px; padding: 4px 14px 4px 10px;
+    color: #bfefff; font-weight: 800; font-size: 18px; }
+  /* action buttons (pearl gun, blueprint, camouflage) */
+  #actions { position: fixed; right: 16px; top: 50%; transform: translateY(-72%);
+    display: none; flex-direction: column; gap: 12px; z-index: 15; }
+  body.playing #actions { display: flex; }
+  #actions button {
+    width: 62px; height: 62px; border-radius: 50%; font-size: 26px;
+    background: rgba(8,44,66,.6); border: 2px solid rgba(255,255,255,.4); color: #fff;
+  }
+  #actions button:active { background: rgba(126,243,208,.75); }
+  #actions button.on { background: rgba(126,243,208,.85); border-color: #fff; }
+  #actions .lbl { display: block; font-size: 10px; color: #eafaff; margin-top: -2px;
+    font-weight: 700; letter-spacing: .3px; }
+
+  /* elemental shield buttons */
+  #shields { position: fixed; left: 16px; top: 50%; transform: translateY(-50%);
+    display: none; flex-direction: column; gap: 12px; z-index: 15; }
+  body.playing #shields { display: flex; }
+  #shields button { width: 56px; height: 56px; border-radius: 50%; font-size: 24px;
+    border: 3px solid rgba(255,255,255,.45); position: relative; color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,.5); }
+  #shields button .cd { position: absolute; bottom: -4px; right: -4px; width: 22px;
+    height: 22px; border-radius: 50%; background: #fff; color: #053045;
+    font-size: 13px; font-weight: 800; display: none; align-items: center;
+    justify-content: center; }
+  #shields button.on { border-color: #fff; box-shadow: 0 0 16px rgba(255,255,255,.9);
+    transform: scale(1.14); }
+  #shields button.on .cd { display: flex; }
+  #shEarth { background: radial-gradient(circle at 30% 30%, #a97c50, #5d8a3c); }
+  #shWind  { background: radial-gradient(circle at 30% 30%, #ffffff, #6fc9dc); }
+  #shFire  { background: radial-gradient(circle at 30% 30%, #ffb347, #d63a20); }
+  #shWater { background: radial-gradient(circle at 30% 30%, #7fc9ff, #1663c7); }
+
+  /* bite flash */
+  #hurt { position: fixed; inset: 0; pointer-events: none; z-index: 30; opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(255,0,0,0) 55%, rgba(255,30,30,.55));
+    transition: opacity .5s; }
+  #hurt.flash { opacity: 1; transition: opacity .05s; }
+
+  /* quest tracker */
+  #questChip { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 50%;
+    transform: translateX(-50%); z-index: 12; background: rgba(8,44,66,.75);
+    border: 2px solid rgba(255,255,255,.3); border-radius: 999px; padding: 6px 16px;
+    color: #fff; font-weight: 700; font-size: 14px; display: none; align-items: center;
+    gap: 8px; max-width: 74vw; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; pointer-events: none; }
+  body.playing #questChip.active { display: flex; }
+  #questArrow { display: inline-block; font-size: 18px; transition: transform .15s linear; }
+
+  /* talk / buy button */
+  #interactBtn { position: fixed; bottom: 92px; left: 50%; transform: translateX(-50%);
+    z-index: 16; font-size: clamp(16px, 3.5vw, 21px); font-weight: 800; color: #043045;
+    background: linear-gradient(180deg, #ffe9a8, #ffd76a); border: 3px solid #fff;
+    border-radius: 999px; padding: 10px 26px; box-shadow: 0 6px 18px rgba(0,0,0,.35);
+    animation: pulse 1.6s ease-in-out infinite; }
+
+  /* dialog panel */
+  #dialog { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%);
+    z-index: 25; width: min(560px, 92vw); background: rgba(8,44,66,.92);
+    border: 3px solid rgba(255,255,255,.35); border-radius: 22px; padding: 18px 20px;
+    color: #eafaff; backdrop-filter: blur(6px); }
+  #dlgText { font-size: clamp(15px, 3.6vw, 19px); line-height: 1.45; margin-bottom: 14px; }
+  #dlgBtns { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+  #dlgBtns button { font-size: 16px; font-weight: 800; border-radius: 999px;
+    padding: 10px 22px; border: 2px solid #fff; }
+  #dlgBtns button.primary { background: linear-gradient(180deg, #7ef3d0, #2ec4b6); color: #043045; }
+  #dlgBtns button.plain { background: rgba(255,255,255,.15); color: #eafaff; }
+  #topRight { position: absolute; top: max(10px, env(safe-area-inset-top)); right: 12px;
+    display: flex; gap: 8px; }
+  #topRight button {
+    pointer-events: auto; width: 46px; height: 46px; border-radius: 50%;
+    background: rgba(8,44,66,.65); border: 2px solid rgba(255,255,255,.35);
+    font-size: 22px; color: #fff;
+  }
+  #toast {
+    position: absolute; top: 16%; left: 50%; transform: translateX(-50%);
+    background: rgba(8,44,66,.85); color: #fff; font-size: clamp(16px, 3.5vw, 22px);
+    font-weight: 700; padding: 10px 22px; border-radius: 999px;
+    border: 2px solid rgba(255,255,255,.35); opacity: 0; transition: opacity .35s;
+    text-align: center; max-width: 86vw;
+  }
+  #hint {
+    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,.85); font-size: 13px; text-align: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,.6); pointer-events: none; white-space: nowrap;
+  }
+
+  /* ---------- Touch controls ---------- */
+  #stick {
+    position: fixed; z-index: 15; width: 120px; height: 120px; border-radius: 50%;
+    background: rgba(255,255,255,.10); border: 2px solid rgba(255,255,255,.35);
+    display: none; pointer-events: none;
+  }
+  #stickKnob {
+    position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; border-radius: 50%;
+    background: rgba(255,255,255,.55); transform: translate(-50%,-50%);
+  }
+  .udBtn {
+    position: fixed; right: 16px; z-index: 15; width: 64px; height: 64px; border-radius: 50%;
+    background: rgba(8,44,66,.55); border: 2px solid rgba(255,255,255,.4);
+    color: #fff; font-size: 26px; display: none; align-items: center; justify-content: center;
+  }
+  body.touch.playing .udBtn { display: flex; }
+  #btnUp   { bottom: 108px; }
+  #btnDown { bottom: 28px; }
+  .udBtn:active, .udBtn.pressed { background: rgba(126,243,208,.75); color: #043045; }
+</style>
+</head>
+<body>
+  <div id="game"></div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="hearts">💗💗💗💗</div>
+    <div id="coins">🐚 0</div>
+    <div id="pearls">🫧 6</div>
+    <div id="topRight">
+      <button id="muteBtn" title="Sound">🔊</button>
+      <button id="customizeBtn" title="Customize">🧜</button>
+    </div>
+    <div id="toast"></div>
+    <div id="hint"></div>
+  </div>
+
+  <!-- Quest tracker, talk button, dialog -->
+  <div id="questChip"><span id="questArrow">⬆</span><span id="questText"></span></div>
+  <button id="interactBtn" class="hidden">💬 Talk</button>
+  <div id="dialog" class="hidden">
+    <div id="dlgText"></div>
+    <div id="dlgBtns"></div>
+  </div>
+
+  <!-- Elemental shields -->
+  <div id="shields">
+    <button id="shEarth" data-el="earth" title="Earth shield (1)">🪨<span class="cd"></span></button>
+    <button id="shWind" data-el="wind" title="Wind shield (2)">💨<span class="cd"></span></button>
+    <button id="shFire" data-el="fire" title="Fire shield (3)">🔥<span class="cd"></span></button>
+    <button id="shWater" data-el="water" title="Water shield (4)">💧<span class="cd"></span></button>
+  </div>
+  <div id="hurt"></div>
+
+  <!-- Action buttons -->
+  <div id="actions">
+    <button id="btnShoot" title="Shoot a pearl (F)">🫧</button>
+    <button id="btnBuild" title="Change blueprint (B)">🕳️</button>
+    <button id="btnCamo" title="Camouflage &amp; rest (X)">🦎</button>
+  </div>
+
+  <!-- Touch controls -->
+  <div id="stick"><div id="stickKnob"></div></div>
+  <button class="udBtn" id="btnUp">⬆️</button>
+  <button class="udBtn" id="btnDown">⬇️</button>
+
+  <!-- Character creator -->
+  <div id="creator">
+    <h1>🧜‍♀️ Mer <span>Life</span> 🐠</h1>
+    <div id="creatorPanel">
+      <h3>Who are you?</h3>
+      <div class="segmented" id="optKind"></div>
+      <h3>Body</h3>
+      <div class="segmented" id="optBody"></div>
+      <h3>Skin</h3>
+      <div class="swatches" id="optSkin"></div>
+      <h3>Tail scales</h3>
+      <div class="swatches" id="optScales"></div>
+      <h3>Hair</h3>
+      <div class="segmented" id="optHairStyle"></div>
+      <div class="swatches" id="optHair" style="margin-top:7px"></div>
+      <h3 id="extrasTitle" class="hidden">Treasures</h3>
+      <div class="segmented hidden" id="optExtras"></div>
+    </div>
+    <div id="creatorBottom">
+      <button id="diveBtn">🌊 Dive In!</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
