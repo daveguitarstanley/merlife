@@ -88,6 +88,16 @@ const hud = document.getElementById('hud');
 const toastEl = document.getElementById('toast');
 const hintEl = document.getElementById('hint');
 const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+// Fullscreen needs a real user gesture — hook every tap, so the game goes (and
+// stays) fullscreen from the first touch, and re-enters if the browser drops it.
+// (iPhones don't support the fullscreen API at all — PWA install is their path.)
+if (isTouch && document.documentElement.requestFullscreen) {
+  document.addEventListener('touchend', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+    }
+  }, { passive: true });
+}
 let toastTimer = null;
 function toast(msg, ms = 2600) {
   toastEl.textContent = msg;
@@ -475,7 +485,9 @@ function findInteract() {
   if (state !== 'play' || mode !== 'land' || dialogOpen) return null;
   for (const n of village.npcs) {
     const d = Math.hypot(n.group.position.x - pos.x, n.group.position.z - pos.z);
-    if (d < 3.8) return { type: 'npc', npc: n, label: `💬 Talk to ${n.quest.short}` };
+    // shopkeepers stand behind their stall counter — let kids talk from the front
+    const reach = n.quest.shop ? 8.5 : 3.8;
+    if (d < reach) return { type: 'npc', npc: n, label: `💬 Talk to ${n.quest.short}` };
   }
   for (let i = 0; i < world.saleHouses.length; i++) {
     if (save.houses[i]) continue;
@@ -573,6 +585,14 @@ function terrainGradient(x, z) {
   return Math.hypot(gx, gz);
 }
 
+// swap the big touch buttons to match the mode: UP/DOWN in water, JUMP on land
+function updateMoveButtons() {
+  const land = mode === 'land';
+  document.body.classList.toggle('land', land);
+  document.querySelector('#btnUp .ico').textContent = land ? '🐰' : '⬆️';
+  document.querySelector('#btnUp .word').textContent = land ? 'JUMP' : 'UP';
+}
+
 function toLand(groundY) {
   mode = 'land';
   if (camo) setCamo(false);
@@ -580,19 +600,21 @@ function toLand(groundY) {
   vel.set(0, 0, 0); vy = 0; onGround = true;
   pos.y = groundY + 1.47;
   character.setForm('human');
+  updateMoveButtons();
   burstSparkles(pos);
   audio.chime();
   toast('✨ You have legs! ✨');
-  setHint(isTouch ? 'Steer left/right • push up to walk' : '⬅️➡️ steer • ⬆️ walk ahead • Space jump');
+  setHint(isTouch ? '🕹️ walk • 🐰 JUMP to hop' : '⬅️➡️ steer • ⬆️ walk ahead • Space jump');
 }
 function toWater() {
   mode = 'water';
   vel.set(0, 0, 0); vy = 0;
   character.setForm('mer');
+  updateMoveButtons();
   burstSparkles(pos);
   audio.splash();
   toast('🌊 Splash! Back to mer-form!');
-  setHint(isTouch ? 'Steer left/right • ⬆️⬇️ rise & dive' : '⬅️➡️ steer • ⬆️ swim ahead • Space up • Shift down • F pearl • B blueprint • X rest');
+  setHint(isTouch ? '🕹️ swim • UP & DOWN to rise and dive' : '⬅️➡️ steer • ⬆️ swim ahead • Space up • Shift down • F pearl • B blueprint • X rest');
 }
 
 // ---------------------------------------------------------------- co-op
@@ -644,10 +666,6 @@ const creatorUI = setupCreator(config,
     document.body.classList.add('playing');
     state = 'play';
     controls.enabled = true;
-    // on mobile, try to go fullscreen for immersive play
-    if (document.documentElement.requestFullscreen && /mobile|android|iphone/i.test(navigator.userAgent)) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
     // snap the camera straight behind the character so "forward" means forward
     const yaw = character.group.rotation.y;
     const dist = mode === 'water' ? 7.5 : 8.5;
@@ -659,7 +677,8 @@ const creatorUI = setupCreator(config,
     // arrived via a friend's share link → splash straight into their sea
     if (/^#r=/.test(location.hash) && !net.active) startCoop(false);
     else toast('Welcome home, little mer! Swim toward the sunny island! ☀️', 3800);
-    setHint(isTouch ? 'Steer left/right • ⬆️⬇️ rise & dive' : '⬅️➡️ steer • ⬆️ swim ahead • Space up • Shift down • F pearl • B blueprint • X rest');
+    updateMoveButtons();
+    setHint(isTouch ? '🕹️ swim • UP & DOWN to rise and dive' : '⬅️➡️ steer • ⬆️ swim ahead • Space up • Shift down • F pearl • B blueprint • X rest');
   },
   () => save.unlocks);
 

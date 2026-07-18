@@ -30,9 +30,10 @@ export class Controls {
           this.stick.id = t.identifier;
           this.stick.ox = t.clientX; this.stick.oy = t.clientY;
           this.stick.x = 0; this.stick.y = 0;
-          stickEl.style.display = 'block';
-          stickEl.style.left = (t.clientX - 60) + 'px';
-          stickEl.style.top = (t.clientY - 60) + 'px';
+          const half = stickEl.offsetWidth / 2 || 58;
+          stickEl.style.left = (t.clientX - half) + 'px';
+          stickEl.style.top = (t.clientY - half) + 'px';
+          stickEl.style.bottom = 'auto';
           knobEl.style.transform = 'translate(-50%,-50%)';
         }
       }
@@ -54,7 +55,9 @@ export class Controls {
       for (const t of e.changedTouches) {
         if (t.identifier === this.stick.id) {
           this.stick.id = null; this.stick.x = 0; this.stick.y = 0;
-          stickEl.style.display = 'none';
+          // glide back to the home corner (CSS position) rather than vanishing
+          stickEl.style.left = ''; stickEl.style.top = ''; stickEl.style.bottom = '';
+          knobEl.style.transform = 'translate(-50%,-50%)';
         }
       }
     };

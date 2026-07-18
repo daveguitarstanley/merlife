@@ -179,40 +179,68 @@
   #hint {
     position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
     color: rgba(255,255,255,.85); font-size: 13px; text-align: center;
-    text-shadow: 0 1px 3px rgba(0,0,0,.6); pointer-events: none; white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0,0,0,.6); pointer-events: none; max-width: 92vw;
   }
 
   /* ---------- Touch controls ---------- */
+  /* Joystick: ALWAYS visible while playing (kids need to SEE the control).
+     It sits home at bottom-left; a touch anywhere on the left half grabs it. */
   #stick {
-    position: fixed; z-index: 15; width: 120px; height: 120px; border-radius: 50%;
-    background: rgba(255,255,255,.10); border: 2px solid rgba(255,255,255,.35);
-    display: none; pointer-events: none;
+    position: fixed; z-index: 15; width: 116px; height: 116px; border-radius: 50%;
+    background: rgba(8,44,66,.35); border: 2px solid rgba(255,255,255,.4);
+    display: none; pointer-events: none; left: 22px; bottom: 26px;
   }
+  body.touch.playing #stick { display: block; }
+  #stick .dir { position: absolute; color: rgba(255,255,255,.65); font-size: 13px; }
+  #stick .dir.n { top: 6px; left: 50%; transform: translateX(-50%); }
+  #stick .dir.s { bottom: 6px; left: 50%; transform: translateX(-50%); }
+  #stick .dir.w { left: 8px; top: 50%; transform: translateY(-50%); }
+  #stick .dir.e { right: 8px; top: 50%; transform: translateY(-50%); }
   #stickKnob {
-    position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; border-radius: 50%;
-    background: rgba(255,255,255,.55); transform: translate(-50%,-50%);
+    position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(255,255,255,.6); box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    transform: translate(-50%,-50%);
   }
+  /* Big labelled UP / DOWN (water) — becomes a single JUMP on land */
   .udBtn {
-    position: fixed; right: 16px; z-index: 15; width: 64px; height: 64px; border-radius: 50%;
-    background: rgba(8,44,66,.55); border: 2px solid rgba(255,255,255,.4);
-    color: #fff; font-size: 26px; display: none; align-items: center; justify-content: center;
+    position: fixed; right: 18px; z-index: 15; width: 74px; height: 74px; border-radius: 50%;
+    background: rgba(8,44,66,.6); border: 3px solid rgba(255,255,255,.5);
+    color: #fff; display: none; flex-direction: column; align-items: center; justify-content: center;
   }
+  .udBtn .ico { font-size: 24px; line-height: 1.1; }
+  .udBtn .word { font-size: 12px; font-weight: 800; letter-spacing: .5px; color: #eafaff; }
   body.touch.playing .udBtn { display: flex; }
-  #btnUp   { bottom: 108px; }
-  #btnDown { bottom: 28px; }
-  .udBtn:active, .udBtn.pressed { background: rgba(126,243,208,.75); color: #043045; }
+  body.land #btnDown { display: none !important; }
+  #btnUp   { bottom: 122px; }
+  #btnDown { bottom: 32px; }
+  .udBtn:active, .udBtn.pressed { background: rgba(126,243,208,.8); }
+  .udBtn:active .word, .udBtn.pressed .word { color: #043045; }
 
-  /* Landscape mobile: reposition buttons to avoid HUD overlap */
-  @media (orientation: landscape) and (max-height: 500px) {
-    #actions { top: auto; bottom: 20px; transform: none; gap: 8px; flex-direction: row; }
-    #actions button { width: 52px; height: 52px; font-size: 22px; }
-    #shields { top: auto; bottom: 20px; left: auto; right: 90px; transform: none; gap: 8px; flex-direction: row; }
-    #shields button { width: 50px; height: 50px; font-size: 20px; }
-    #shields button .cd { width: 18px; font-size: 8px; }
-    #btnUp   { bottom: 20px; width: 52px; height: 52px; font-size: 20px; }
-    #btnDown { display: none; }
-    #stick { width: 100px; height: 100px; bottom: 20px; left: 16px; }
-    #stickKnob { width: 36px; height: 36px; }
+  /* Landscape phones: everything lives in the 4 corners, centre stays clear.
+     shields = left edge · actions = right edge · joystick = bottom-left ·
+     UP/DOWN (or JUMP) = bottom-right, side by side */
+  @media (orientation: landscape) and (max-height: 520px) {
+    /* counters become one row along the top so the left edge is free for shields */
+    #hearts { font-size: 20px; }
+    #coins  { left: 128px; margin-top: 0; top: max(10px, env(safe-area-inset-top)); font-size: 15px; }
+    #pearls { left: 232px; margin-top: 0; top: max(10px, env(safe-area-inset-top)); font-size: 15px; }
+    /* 2×2 shield pad above the joystick — everything for the left thumb */
+    body.playing #shields { display: grid; grid-template-columns: 46px 46px; gap: 8px;
+      left: 14px; top: auto; bottom: 132px; transform: none; }
+    #shields button { width: 46px; height: 46px; font-size: 19px; }
+    #shields button .cd { width: 18px; height: 18px; font-size: 11px; }
+    #actions { right: 12px; top: 42%; transform: translateY(-74%); gap: 8px; }
+    #actions button { width: 50px; height: 50px; font-size: 19px; }
+    #actions .lbl { font-size: 8px; }
+    #stick { width: 94px; height: 94px; left: 16px; bottom: 18px; }
+    #stickKnob { width: 42px; height: 42px; }
+    .udBtn { width: 64px; height: 64px; }
+    .udBtn .ico { font-size: 20px; }
+    .udBtn .word { font-size: 10px; }
+    #btnUp   { right: 16px; bottom: 18px; }
+    #btnDown { right: 92px; bottom: 18px; }
+    #hint { font-size: 11px; max-width: 46vw; white-space: normal; }
+    #interactBtn { bottom: 96px; }
   }
 </style>
 </head>
@@ -265,15 +293,19 @@
 
   <!-- Action buttons -->
   <div id="actions">
-    <button id="btnShoot" title="Shoot a pearl (F)">🫧</button>
-    <button id="btnBuild" title="Change blueprint (B)">🕳️</button>
-    <button id="btnCamo" title="Camouflage &amp; rest (X)">🦎</button>
+    <button id="btnShoot" title="Shoot a pearl (F)">🫧<span class="lbl">PEARL</span></button>
+    <button id="btnBuild" title="Change blueprint (B)">🕳️<span class="lbl">BUILD</span></button>
+    <button id="btnCamo" title="Camouflage &amp; rest (X)">🦎<span class="lbl">HIDE</span></button>
   </div>
 
   <!-- Touch controls -->
-  <div id="stick"><div id="stickKnob"></div></div>
-  <button class="udBtn" id="btnUp">⬆️</button>
-  <button class="udBtn" id="btnDown">⬇️</button>
+  <div id="stick">
+    <span class="dir n">▲</span><span class="dir s">▼</span>
+    <span class="dir w">◀</span><span class="dir e">▶</span>
+    <div id="stickKnob"></div>
+  </div>
+  <button class="udBtn" id="btnUp"><span class="ico">⬆️</span><span class="word">UP</span></button>
+  <button class="udBtn" id="btnDown"><span class="ico">⬇️</span><span class="word">DOWN</span></button>
 
   <!-- Character creator -->
   <div id="creator">
