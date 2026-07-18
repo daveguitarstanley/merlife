@@ -6,10 +6,11 @@ import { setupCreator, loadConfig, saveConfig } from './creator.js';
 import { createFishSchools } from './fish.js';
 import { GameAudio } from './audio.js';
 import { PearlSystem, PEARL_CAP } from './builder.js';
-import { NastyFish, ELEMENTS } from './enemy.js';
+import { NastyFish } from './enemy.js';
 import { QUESTS } from './quests.js';
 import { buildVillage, makeTextSprite } from './village.js';
 import { Net } from './net.js';
+import QRCode from 'qrcode';
 
 // ---------------------------------------------------------------- setup
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -108,7 +109,7 @@ function toast(msg, ms = 2600) {
 function setHint(msg) { hintEl.textContent = msg; }
 
 const SAVE_DEFAULTS = {
-  coins: 0, pearls: 6, hearts: 4, builds: [], sites: [],
+  coins: 0, pearls: 6, hearts: 4, pot: 0, builds: [], sites: [],
   quests: { active: null, carrying: false, repeat: false, done: [] },
   unlocks: {}, houses: {},
 };
@@ -201,57 +202,42 @@ window.addEventListener('keydown', (e) => {
   else if (e.code === 'KeyX') toggleCamo();
 });
 
-// ---------------------------------------------------------------- shields & nasty fish
+// ---------------------------------------------------------------- boost & nasty fish
 const nasty = new NastyFish(scene);
 let nastyCooldown = 0;       // pause between encounters
 let warnedDeep = false;
-const shield = { id: null, t: 0 };
-const shieldMesh = new THREE.Mesh(
-  new THREE.SphereGeometry(1.55, 24, 18),
-  new THREE.MeshPhysicalMaterial({
-    color: 0xffffff, transparent: true, opacity: 0.26, roughness: 0.15,
-    metalness: 0.1, depthWrite: false, side: THREE.DoubleSide,
-  }));
-shieldMesh.visible = false;
-scene.add(shieldMesh);
-const shieldBtns = {};
-for (const el of ELEMENTS) shieldBtns[el.id] = document.querySelector(`#shields [data-el="${el.id}"]`);
-let lastCd = -1;
-function updateShieldUI() {
-  for (const el of ELEMENTS) {
-    const on = shield.id === el.id;
-    shieldBtns[el.id].classList.toggle('on', on);
-    if (on) {
-      const cd = Math.ceil(shield.t);
-      if (cd !== lastCd) { shieldBtns[el.id].querySelector('.cd').textContent = cd; lastCd = cd; }
-    }
-  }
+// Boost dash: 2 charges, each takes 10 s to come back. Zoom in, grab the
+// treasure, zoom out before the nasty fish catches you!
+const boost = { charges: 2, max: 2, recharge: 0, active: 0 };
+const boostBtn = document.getElementById('btnBoost');
+const boostPips = document.getElementById('boostPips');
+function updateBoostUI() {
+  boostPips.textContent = '●'.repeat(boost.charges) + '○'.repeat(boost.max - boost.charges);
+  boostBtn.classList.toggle('empty', boost.charges === 0);
 }
-function activateShield(id) {
+function doBoost() {
   if (state !== 'play') return;
-  if (mode !== 'water') { toast('Shields only work underwater!'); return; }
-  if (camo) { toast('You are resting — move first, then raise a shield!'); return; }
-  const el = ELEMENTS.find((e) => e.id === id);
-  shield.id = id;
-  shield.t = 10;
-  shieldMesh.material.color.set(el.color);
-  shieldMesh.visible = true;
-  audio.chime([440, 587.33]);
-  toast(`${el.emoji} ${el.label} shield up! (10s)`);
-  updateShieldUI();
+  if (mode !== 'water') { toast('🚀 Boost only works underwater!'); return; }
+  if (boost.charges <= 0) { toast(`🚀 Recharging… ${Math.ceil(10 - boost.recharge)}s`); return; }
+  if (camo) setCamo(false);
+  boost.charges--;
+  boost.active = 0.9;
+  audio.chime([659.25, 880]);
+  burstSparkles(pos);
+  updateBoostUI();
 }
-function dropShield() {
-  shield.id = null;
-  shield.t = 0;
-  shieldMesh.visible = false;
-  updateShieldUI();
+function tickBoost(dt) {
+  boost.active = Math.max(0, boost.active - dt);
+  if (boost.charges < boost.max) {
+    boost.recharge += dt;
+    if (boost.recharge >= 10) { boost.recharge = 0; boost.charges++; updateBoostUI(); if (boost.charges === boost.max) toast('🚀 Boost fully charged!'); }
+  } else boost.recharge = 0;
 }
-for (const el of ELEMENTS) shieldBtns[el.id].addEventListener('click', () => activateShield(el.id));
+boostBtn.addEventListener('click', doBoost);
 window.addEventListener('keydown', (e) => {
-  if (e.repeat) return;
-  const k = { Digit1: 'earth', Digit2: 'wind', Digit3: 'fire', Digit4: 'water' }[e.code];
-  if (k) activateShield(k);
+  if (!e.repeat && (e.code === 'KeyQ' || e.code === 'Digit1')) doBoost();
 });
+updateBoostUI();
 
 const hurtEl = document.getElementById('hurt');
 function flashHurt() {
@@ -266,7 +252,7 @@ function reClone() {
   vel.set(0, 0, 0);
   character.group.rotation.y = Math.PI / 2;
   setCamo(false);
-  dropShield();
+  boost.charges = boost.max; boost.recharge = 0; boost.active = 0; updateBoostUI();
   nasty.despawn();
   nastyCooldown = 12;
   burstSparkles(pos);
@@ -282,13 +268,7 @@ function onBite() {
   audio.buzz();
   flashHurt();
   if (save.hearts <= 0) reClone();
-  else toast(`🦈 Chomp! ${save.hearts} ❤️ left — try a different shield!`);
-}
-function onBounce() {
-  const el = ELEMENTS.find((e) => e.id === shield.id);
-  audio.chime([523.25, 659.25, 783.99]);
-  burstSparkles(nasty.group.position);
-  toast(`🛡️ BOING! The ${el.emoji} ${el.label} shield sent it flying for 10 seconds!`, 3200);
+  else toast(`🦈 Chomp! ${save.hearts} ❤️ left — 🚀 BOOST away or 🦎 hide!`);
 }
 
 // ---------------------------------------------------------------- village, quests & houses
@@ -441,40 +421,42 @@ function applyHouseState(i, kind) {
 }
 function buyFlow(i) {
   const h = world.saleHouses[i];
-  if (save.coins < h.price) {
-    showDialog(`This cosy house costs ${h.price} 🐚 and you have ${save.coins} 🐚. Help more villagers to earn shell coins!`,
-      [{ label: 'OK' }]);
+  const afterBuy = () => {
+    refreshHud();
+    showDialog('It\'s yours! 🎉 Will you keep it as your own beach home, or gift it to someone who has no home?', [
+      {
+        label: 'Live here 🏠',
+        fn: () => { save.houses[i] = 'owned'; applyHouseState(i, 'owned'); saveGame(); audio.chime(); toast('🏠 Welcome to your new island home!'); },
+      },
+      {
+        label: 'Gift it ❤️',
+        fn: () => {
+          if (!nextHomeless()) {
+            save.houses[i] = 'owned'; applyHouseState(i, 'owned'); saveGame();
+            toast('Everyone already has a home — so this one is yours! 🏠');
+            return;
+          }
+          save.houses[i] = 'gifted'; applyHouseState(i, 'gifted'); saveGame();
+          audio.chime([523.25, 659.25, 783.99, 1046.5]);
+          toast('❤️ You just changed someone\'s life! What a hero!', 4000);
+        },
+      },
+    ]);
+  };
+  const opts = [];
+  if (save.coins >= h.price) {
+    opts.push({ label: 'Buy it! 🏠', fn: () => { save.coins -= h.price; afterBuy(); } });
+  }
+  if (save.pot >= h.price) {
+    opts.push({ label: 'Pay from Community Pot 🏦', fn: () => { setPot(save.pot - h.price); afterBuy(); } });
+  }
+  if (!opts.length) {
+    showDialog(`This cosy house costs ${h.price} 🐚 — you have ${save.coins} 🐚 and the Community Pot holds ${save.pot} 🐚. ` +
+      'Help more villagers, or pool coins with a friend at the 🏦 Shell Bank!', [{ label: 'OK' }]);
     return;
   }
-  showDialog(`Buy this lovely house for ${h.price} 🐚?`, [
-    {
-      label: `Buy it! 🏠`,
-      fn: () => {
-        save.coins -= h.price;
-        refreshHud();
-        showDialog('It\'s yours! 🎉 Will you keep it as your own beach home, or gift it to someone who has no home?', [
-          {
-            label: 'Live here 🏠',
-            fn: () => { save.houses[i] = 'owned'; applyHouseState(i, 'owned'); saveGame(); audio.chime(); toast('🏠 Welcome to your new island home!'); },
-          },
-          {
-            label: 'Gift it ❤️',
-            fn: () => {
-              if (!nextHomeless()) {
-                save.houses[i] = 'owned'; applyHouseState(i, 'owned'); saveGame();
-                toast('Everyone already has a home — so this one is yours! 🏠');
-                return;
-              }
-              save.houses[i] = 'gifted'; applyHouseState(i, 'gifted'); saveGame();
-              audio.chime([523.25, 659.25, 783.99, 1046.5]);
-              toast('❤️ You just changed someone\'s life! What a hero!', 4000);
-            },
-          },
-        ]);
-      },
-    },
-    { label: 'Not now' },
-  ]);
+  opts.push({ label: 'Not now' });
+  showDialog(`Buy this lovely house for ${h.price} 🐚?`, opts);
 }
 
 // ---- talking / buying ----
@@ -483,12 +465,25 @@ let insideHouse = -1;
 let insideWreck = false;
 function findInteract() {
   if (state !== 'play' || mode !== 'land' || dialogOpen) return null;
+  if (ridingBuggy) return { type: 'buggyOut', label: '🛑 Hop out' };
+  // several things can be in reach at once — offer the NEAREST one
+  let best = null, bestD = Infinity;
+  const consider = (d, reach, it) => { if (d < reach && d < bestD) { best = it; bestD = d; } };
   for (const n of village.npcs) {
     const d = Math.hypot(n.group.position.x - pos.x, n.group.position.z - pos.z);
     // shopkeepers stand behind their stall counter — let kids talk from the front
-    const reach = n.quest.shop ? 8.5 : 3.8;
-    if (d < reach) return { type: 'npc', npc: n, label: `💬 Talk to ${n.quest.short}` };
+    consider(d, n.quest.shop ? 8.5 : 3.8, { type: 'npc', npc: n, label: `💬 Talk to ${n.quest.short}` });
   }
+  {
+    const b = village.banker.group.position;
+    consider(Math.hypot(b.x - pos.x, b.z - pos.z), 4.5, { type: 'bank', label: '🏦 Shell Bank' });
+  }
+  for (const bg of world.buggies) {
+    if (bg.driving) continue;
+    const d = Math.hypot(bg.group.position.x - pos.x, bg.group.position.z - pos.z);
+    consider(d, 4.5, { type: 'buggy', buggy: bg, label: '🛺 Hop in!' });
+  }
+  if (best) return best;
   for (let i = 0; i < world.saleHouses.length; i++) {
     if (save.houses[i]) continue;
     const h = world.saleHouses[i];
@@ -497,9 +492,46 @@ function findInteract() {
   }
   return null;
 }
+// ---- the Shell Bank: pool coins into the community pot ----
+function setPot(v) {
+  save.pot = Math.max(0, Math.round(v));
+  net.setPot(save.pot);
+  saveGame();
+}
+function bankFlow() {
+  const btns = [];
+  if (save.coins >= 50) btns.push({ label: 'Put in 50 🐚', fn: () => { save.coins -= 50; setPot(save.pot + 50); refreshHud(); audio.chime(); toast(`💰 Community pot: ${save.pot} 🐚`); } });
+  if (save.coins >= 200) btns.push({ label: 'Put in 200 🐚', fn: () => { save.coins -= 200; setPot(save.pot + 200); refreshHud(); audio.chime(); toast(`💰 Community pot: ${save.pot} 🐚`); } });
+  if (save.pot >= 50) btns.push({ label: 'Take out 50 🐚', fn: () => { setPot(save.pot - 50); save.coins += 50; refreshHud(); toast(`🐚 You have ${save.coins} — pot: ${save.pot}`); } });
+  btns.push({ label: 'Done 👋' });
+  showDialog(`Goldie: "Welcome to the Shell Bank! 🏦 The Community Pot holds ${save.pot} 🐚. ` +
+    `Everyone in your sea can add coins — pool together to buy the big houses for villagers in need!"`, btns);
+}
+// ---- golf buggies: hop in, zoom around town ----
+let ridingBuggy = null;
+function boardBuggy(b) {
+  ridingBuggy = b;
+  b.driving = true;
+  audio.chime([523.25, 659.25]);
+  toast('🛺 Beep beep! Off we go!');
+  setHint(isTouch ? '🕹️ drive • 💬 button to hop out' : '⬅️➡️ steer • ⬆️ drive • E to hop out');
+}
+function unboardBuggy() {
+  const b = ridingBuggy;
+  ridingBuggy = null;
+  b.driving = false;
+  // step out to the side of the buggy
+  pos.x += Math.sin(charYaw + Math.PI / 2) * 2.2;
+  pos.z += Math.cos(charYaw + Math.PI / 2) * 2.2;
+  toast('🛺 Parked! See you next ride.');
+  setHint(isTouch ? '🕹️ walk • 🐰 JUMP to hop' : '⬅️➡️ steer • ⬆️ walk ahead • Space jump');
+}
 function doInteract() {
   if (!currentInteract) return;
   if (currentInteract.type === 'house') { buyFlow(currentInteract.i); return; }
+  if (currentInteract.type === 'bank') { bankFlow(); return; }
+  if (currentInteract.type === 'buggy') { boardBuggy(currentInteract.buggy); return; }
+  if (currentInteract.type === 'buggyOut') { unboardBuggy(); return; }
   const q = currentInteract.npc.quest;
   const st = save.quests;
   if (st.active === q.id && st.carrying) {
@@ -596,7 +628,7 @@ function updateMoveButtons() {
 function toLand(groundY) {
   mode = 'land';
   if (camo) setCamo(false);
-  dropShield();
+  boost.active = 0;
   vel.set(0, 0, 0); vy = 0; onGround = true;
   pos.y = groundY + 1.47;
   character.setForm('human');
@@ -614,7 +646,7 @@ function toWater() {
   burstSparkles(pos);
   audio.splash();
   toast('🌊 Splash! Back to mer-form!');
-  setHint(isTouch ? '🕹️ swim • UP & DOWN to rise and dive' : '⬅️➡️ steer • ⬆️ swim ahead • Space up • Shift down • F pearl • B blueprint • X rest');
+  setHint(isTouch ? '🕹️ swim • UP/DOWN dive • 🚀 BOOST to escape!' : '⬅️➡️ steer • ⬆️ swim • Space up • Shift down • Q boost • F pearl • B build • X rest');
 }
 
 // ---------------------------------------------------------------- co-op
@@ -631,11 +663,18 @@ async function startCoop(showPanel) {
   }
   try {
     const link = await net.start(scene, character.config);
+    save.pot = net.syncPot(save.pot);           // community pots merge
+    saveGame();
     document.getElementById('coopBtn').classList.add('live');
     net.onFriends = (n) => toast(n > 0 ? '💙 A sea friend is here!' : 'Your friend swam away… 🌊', 3000);
     if (showPanel) {
       coopStatus.textContent = 'Your sea is open! Share this link:';
       coopLinkEl.value = link;
+      // QR code so a tablet/phone can just scan the screen to join
+      const qrEl = document.getElementById('coopQR');
+      QRCode.toCanvas(qrEl, link, { width: 296, margin: 1 })
+        .then(() => qrEl.classList.add('show'))
+        .catch(() => {});
     } else {
       toast("🌊 Splash! You're in your friend's sea!", 3600);
     }
@@ -678,7 +717,7 @@ const creatorUI = setupCreator(config,
     if (/^#r=/.test(location.hash) && !net.active) startCoop(false);
     else toast('Welcome home, little mer! Swim toward the sunny island! ☀️', 3800);
     updateMoveButtons();
-    setHint(isTouch ? '🕹️ swim • UP & DOWN to rise and dive' : '⬅️➡️ steer • ⬆️ swim ahead • Space up • Shift down • F pearl • B blueprint • X rest');
+    setHint(isTouch ? '🕹️ swim • UP/DOWN dive • 🚀 BOOST to escape!' : '⬅️➡️ steer • ⬆️ swim • Space up • Shift down • Q boost • F pearl • B build • X rest');
   },
   () => save.unlocks);
 
@@ -742,6 +781,16 @@ function updatePlay(dt) {
     const maxSpeed = 9;
     vel.x += (_move.x * maxSpeed - vel.x) * Math.min(1, dt * 3.2);
     vel.z += (_move.z * maxSpeed - vel.z) * Math.min(1, dt * 3.2);
+    // boost dash: rocket along the facing direction while the burst lasts
+    if (boost.active > 0) {
+      const k = 17 * Math.min(1, boost.active / 0.25);   // eases out at the end
+      vel.x += Math.sin(charYaw) * k * dt * 8;
+      vel.z += Math.cos(charYaw) * k * dt * 8;
+      const cap = 26;
+      const sp = Math.hypot(vel.x, vel.z);
+      if (sp > cap) { vel.x *= cap / sp; vel.z *= cap / sp; }
+      if (Math.random() < 0.5) burstSparkles(pos);
+    }
     const vertIn = (controls.up ? 1 : 0) - (controls.down ? 1 : 0);
     vel.y += (vertIn * 5.5 - vel.y) * Math.min(1, dt * 3.2);
 
@@ -775,7 +824,7 @@ function updatePlay(dt) {
     character.update(dt, { mode: 'water', speed: Math.hypot(vel.x, vel.z), vy: vel.y });
   } else {
     // ---- land ----
-    const maxSpeed = save.unlocks.sponge ? 7.4 : 5.5;  // sponge insoles!
+    const maxSpeed = ridingBuggy ? 12.5 : (save.unlocks.sponge ? 7.4 : 5.5);
     vel.x += (_move.x * maxSpeed - vel.x) * Math.min(1, dt * 8);
     vel.z += (_move.z * maxSpeed - vel.z) * Math.min(1, dt * 8);
     // solid town: house walls (except the doorway) and street furniture block
@@ -789,23 +838,35 @@ function updatePlay(dt) {
     const ground = onJetty ? Math.max(JETTY.deckY, terrainHeight(pos.x, pos.z))
       : terrainHeight(pos.x, pos.z);
 
-    if (controls.up && onGround) { vy = 7.2; onGround = false; audio.chime([660]); }
-    vy -= 20 * dt;
-    pos.y += vy * dt;
-    if (pos.y <= ground + 1.47) {
-      pos.y = ground + 1.47;
-      vy = 0;
-      onGround = true;
+    if (ridingBuggy) {
+      // sitting proud on the buggy bench; the buggy follows the driver
+      vy = 0; onGround = true;
+      pos.y = ground + 2.05;
+      const bg = ridingBuggy.group;
+      bg.position.set(pos.x, ground, pos.z);
+      bg.rotation.y = charYaw;
+      const spin = Math.hypot(vel.x, vel.z) * dt * 2.2;
+      for (const w of ridingBuggy.wheels) w.rotation.x += spin;
+    } else {
+      if (controls.up && onGround) { vy = 7.2; onGround = false; audio.chime([660]); }
+      vy -= 20 * dt;
+      pos.y += vy * dt;
+      if (pos.y <= ground + 1.47) {
+        pos.y = ground + 1.47;
+        vy = 0;
+        onGround = true;
+      }
     }
 
     character.group.rotation.y = charYaw;
 
     // ---- dive back into the sea ----
     if (!onJetty && terrainHeight(pos.x, pos.z) < -1.6 && pos.y < 0.6) {
+      if (ridingBuggy) unboardBuggy();          // buggies don't float!
       toWater();
       pos.y = Math.max(terrainHeight(pos.x, pos.z) + 1, -1.1);
     }
-    character.update(dt, { mode: 'land', speed: Math.hypot(vel.x, vel.z), vy });
+    character.update(dt, { mode: 'land', speed: ridingBuggy ? 0 : Math.hypot(vel.x, vel.z), vy });
   }
 }
 
@@ -881,12 +942,13 @@ window.__mer = {
   toggleCamo,
   nasty,
   guardian,
-  activateShield,
+  doBoost,
   doInteract,
-  get shield() { return { ...shield }; },
+  get boost() { return { ...boost }; },
   get quests() { return JSON.parse(JSON.stringify(save.quests)); },
   get questItemPos() { return questItem ? { ...questItem.pos } : null; },
   addCoins(n) { save.coins += n; refreshHud(); },
+  addPearls(n) { save.pearls = Math.min(PEARL_CAP, save.pearls + n); refreshHud(); },
 };
 
 // ---------------------------------------------------------------- main loop
@@ -904,16 +966,8 @@ function tick(dt) {
   for (const s of schools) s.update(dt, t);
   pearlSystem.update(dt, t, pos, state === 'play');
 
-  // ---- shields & the nasty fish ----
-  if (shield.id) {
-    shield.t -= dt;
-    if (shield.t <= 0) { dropShield(); toast('Your shield faded…'); }
-    else updateShieldUI();
-    shieldMesh.position.set(pos.x, pos.y + 0.2, pos.z);
-    const pulse = 1 + Math.sin(t * 5) * 0.035;
-    shieldMesh.scale.setScalar(pulse);
-    shieldMesh.material.opacity = 0.22 + Math.sin(t * 5) * 0.05;
-  }
+  // ---- boost & the nasty fish ----
+  tickBoost(dt);
   const floorHere = terrainHeight(pos.x, pos.z);
   const deep = floorHere < -15;
   const inWater = mode === 'water' && state === 'play';
@@ -924,7 +978,7 @@ function tick(dt) {
   if (inWater && deep && !nasty.active && nastyCooldown === 0 && !nearGuardian) {
     nasty.spawn(pos);
     audio.buzz();
-    toast('😨 A Nasty Fish is coming! Quick — raise a shield! (1-4)', 3500);
+    toast('😨 A Nasty Fish is coming! 🚀 BOOST away or 🦎 hide!', 3500);
     if (!warnedDeep) warnedDeep = true;
   }
   if (nearGuardian && nasty.active && nasty.state !== 'leave') {
@@ -936,9 +990,7 @@ function tick(dt) {
     playerInWater: inWater,
     deep,
     camo,
-    shieldId: shield.id,
     onBite,
-    onBounce,
   };
   nasty.update(dt, t, fishCtx);
   guardian.update(dt, t, fishCtx);
@@ -1023,8 +1075,22 @@ function tick(dt) {
     }
   }
 
-  net.publish(pos, charYaw, character.form, mode, Math.hypot(vel.x, vel.z), vel.y, camo);
+  net.publish(pos, charYaw, character.form, mode, Math.hypot(vel.x, vel.z), vel.y, camo,
+    ridingBuggy ? world.buggies.indexOf(ridingBuggy) : -1);
   net.update(dt);
+  if (net.active) {
+    const rp = net.getPot();                    // friend fed the pot? take it
+    if (rp !== null && rp !== save.pot) { save.pot = rp; saveGame(); }
+    // a friend driving a buggy drives OUR copy of that buggy too
+    for (const r of net.remotes.values()) {
+      const s = r.p.getState('s');
+      if (!s || typeof s.v !== 'number' || s.v < 0) continue;
+      const b = world.buggies[s.v];
+      if (!b || b === ridingBuggy) continue;
+      b.group.position.set(s.x, terrainHeight(s.x, s.z), s.z);
+      b.group.rotation.y = s.yaw;
+    }
+  }
 
   updateSparkles(dt);
   updateCamera(dt);
@@ -1035,6 +1101,46 @@ function tick(dt) {
 window.__mer.step = (n = 60, dt = 1 / 60) => {
   for (let i = 0; i < n; i++) tick(dt);
 };
-renderer.setAnimationLoop(() => {
-  tick(Math.min(clock.getDelta(), 0.05));
+// ---------------------------------------------------------------- pause & sleep
+let paused = false;
+let idleT = 0;                     // seconds since the last real input
+const pausePanel = document.getElementById('pausePanel');
+function setPaused(on, msg) {
+  if (on === paused) return;
+  paused = on;
+  if (msg) document.getElementById('pauseMsg').textContent = msg;
+  pausePanel.classList.toggle('hidden', !on);
+  if (on) {
+    saveGame();
+    renderer.setAnimationLoop(null);          // stop rendering — saves battery
+  } else {
+    idleT = 0;
+    clock.getDelta();                          // swallow the paused time
+    renderer.setAnimationLoop(frame);
+  }
+}
+document.getElementById('pauseBtn').addEventListener('click', () =>
+  setPaused(true, 'Taking a little rest on a rock…'));
+document.getElementById('pauseResume').addEventListener('click', () => setPaused(false));
+document.getElementById('pauseExit').addEventListener('click', () => {
+  saveGame();
+  location.href = location.pathname;           // back to the title, save kept
 });
+// any real input wakes the idle timer
+for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
+  window.addEventListener(ev, () => { idleT = 0; }, { passive: true });
+}
+
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  // asleep after 5 quiet minutes: pause the game and the render loop
+  if (state === 'play') {
+    idleT += dt;
+    if (idleT > 300) {
+      setPaused(true, '💤 You drifted off for a nap… tap to wake up!');
+      return;
+    }
+  }
+  tick(dt);
+}
+renderer.setAnimationLoop(frame);

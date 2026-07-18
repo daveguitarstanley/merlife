@@ -204,8 +204,41 @@ Random retrieval quests pulled from this list:
     0.35 opacity while exploring inside (same dollhouse trick, `WRECK.mats`).
     Deep-water roamer naturally patrols the area — treasure hunting is risky!
   - STILL TODO: "make EVERYTHING more detailed and realistic" — ongoing art pass.
-  - STILL TODO (the actual 4b): co-op multiplayer via Playroom Kit — next up,
-    needs `npm i playroomkit` + join-by-link room wiring.
+- **Phase 6: Boost, Bank & the Grand Tour** — ✅ BUILT & sim-tested 2026-07-18.
+  A) **Shields REMOVED → 🚀 BOOST** (user decision: shields too glitchy/frustrating
+     for kids). One big BOOST button (left, `#btnBoost`; keys Q or 1): 0.9 s dash
+     ~2.4× swim speed along facing, 2 charges (● ● pips), each takes 10 s to
+     recharge (toast when full). Nasty fish now ALWAYS bite on contact (no
+     weakness mechanic; `_tryBite` in enemy.js — `weakness` fields in quests.js
+     are vestigial). Escape tools: boost, flee, camo, land. Bites/re-clone as
+     before. `__mer.doBoost()` / `.boost` for tests.
+  B) **Shell Bank + Community Pot**: bank building + Goldie the Banker NPC
+     (village.js, market square north at (150,-26)/(150,-19.5)). Talk → deposit
+     50/200, withdraw 50. `save.pot`; in co-op the pot is Playroom room state
+     (`net.setPot/getPot/syncPot` — merge = max on join, polled in tick). For-sale
+     houses can be bought "from the Community Pot" when it covers the price.
+  C) **⏸️ Pause & sleep**: pause button (topRight) → panel (Resume / Exit);
+     pausing stops the render loop (battery). 5 min with zero input in play →
+     auto-pause "💤 drifted off". Exit = location.href reset (save kept).
+  D) **QR code** on the co-op panel (`qrcode` npm pkg → canvas #coopQR) — scan to
+     join, same link as before.
+  E) **Pearl homes are now GRAND**: hollow 5.2-radius pearl dome (wedge doorway,
+     arch frame, portholes, floor+rug, glowing lamp, finial) you swim inside;
+     shell fades to 0.35 while inside (`dollhouses` in PearlSystem.update).
+     Coral cave scaled 2.4× (big swim-through arch). Old cost/prices unchanged.
+  F) **Town grew again**: Palm Row (z=-75) & Sunset Lane (z=75) roads; 10 new
+     houses incl. 2 NEW for-sale (saleHouses indices 4-5 — original 0-3 order
+     untouched, prices auto from size); civic quarter on Palm Row: 🏛️ Town Hall,
+     📮 Post Office, ☕ Reef Café (`civic()` in world.js); park with pond/benches/
+     flowers on Sunset Lane; 2 GOLF BUGGIES parked by Market Square (world.js
+     `buggy()`, `world.buggies`) — 💬 "Hop in!", drive 12.5 u/s with the same
+     steering, "Hop out" via same button, auto-eject at the waterline; in co-op
+     the driver's buggy position mirrors on the friend's screen (`v` field in net
+     state). Underwater: swaying kelp forest (~(-44,76)), rainbow sea arch
+     (~(-140,-55)).
+  `__mer` additions: doBoost, boost, addPearls(n). Save v1 gains `pot`.
+  NOTE: findInteract picks the NEAREST offer (npc/bank/buggy) — shop reach is
+  8.5 so anything new near a stall must live outside that or rely on nearest-wins.
 
 ## Code map
 

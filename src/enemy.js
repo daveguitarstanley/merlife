@@ -125,23 +125,17 @@ export class NastyFish {
     this.group.visible = false;
   }
 
-  _tryBiteOrBounce(dist, ctx) {
+  _tryBite(dist, ctx) {
     const p = this.group.position;
     if (dist < 1.9 && this.biteCooldown === 0) {
-      if (ctx.shieldId && ctx.shieldId === this.weakness) {
-        this.state = 'flee';
-        this.fleeT = 10;
-        ctx.onBounce(this);
-      } else {
-        ctx.onBite(this);
-        this.biteCooldown = 2.4;
-        // recoil a little so it charges again
-        p.addScaledVector(this._v, -4);
-      }
+      ctx.onBite(this);
+      this.biteCooldown = 2.4;
+      // recoil a little so it charges again
+      p.addScaledVector(this._v, -4);
     }
   }
 
-  // ctx: { playerPos, playerInWater, deep, camo, shieldId, onBite(), onBounce() }
+  // ctx: { playerPos, playerInWater, deep, camo, onBite() }
   update(dt, t, ctx) {
     if (!this.active) return;
     this.biteCooldown = Math.max(0, this.biteCooldown - dt);
@@ -171,7 +165,7 @@ export class NastyFish {
           this.state = 'guardReturn';
         } else {
           speed = this.speed;
-          this._tryBiteOrBounce(dist, ctx);
+          this._tryBite(dist, ctx);
         }
       } else if (this.state === 'flee') {
         speed = -6.5;
@@ -196,7 +190,7 @@ export class NastyFish {
           speed = -1.5;  // camouflage confuses it — drifts away disinterested
         } else {
           speed = this.speed;
-          this._tryBiteOrBounce(dist, ctx);
+          this._tryBite(dist, ctx);
         }
       } else if (this.state === 'flee') {
         speed = -6.5;

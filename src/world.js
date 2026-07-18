@@ -335,6 +335,10 @@ export function buildWorld(scene) {
   road(172.5, -50, 145, 7, true);  // Coral Lane
   road(172.5, 50, 145, 7, true);   // Shell Street
   road(220, 0, 100, 7, false);     // East Avenue
+  road(172.5, -75, 125, 7, true);  // Palm Row (civic quarter, north)
+  road(172.5, 75, 125, 7, true);   // Sunset Lane (garden quarter, south)
+  road(150, -75, 8, 7, false);     // Main St spurs join the new streets
+  road(150, 75, 8, 7, false);
   // sloped path from the jetty landing up the beach to Harbour Road
   {
     const len = Math.hypot(19, ISLAND.top + 0.6);
@@ -571,6 +575,12 @@ export function buildWorld(scene) {
     [130, -61, 1, 0, false], [170, -61, 1.05, 0, false], [130, -39, 0.9, F, false],
     [130, 61, 1.1, F, false], [150, 61, 0.9, F, false], [190, 39, 1, 0, false],
     [231, -22, 1.05, -F / 2, false], [231, 22, 0.95, -F / 2, false],
+    // the new quarters (two more for-sale homes → saleHouses indices 4 & 5)
+    [156, -86, 1.15, 0, true],       // Palm Row — the artist's loft
+    [196, 86, 0.9, F, true],         // Sunset Lane — the garden cottage
+    [138, -86, 1, 0, false], [178, -86, 0.95, 0, false],
+    [152, 86, 1.05, F, false], [140, 86, 0.9, F, false], [162, 86, 1.1, F, false],
+    [112, 61, 0.95, 0, false], [196, -61, 1.05, 0, false], [112, -61, 0.9, 0, false],
   ];
   for (const [hx, hz, s, ry, sale] of houseSpots) house(hx, hz, s, ry, sale);
 
@@ -613,6 +623,184 @@ export function buildWorld(scene) {
   palm(150 + 13, 13, 1.1); palm(150 - 13, -13, 1.1);
 
   // (villagers & shopkeepers are built in village.js — Phase 4)
+
+  // ---------- the civic quarter, the park & the golf buggies ----------
+  function makeLabel(text, color = '#ffffff') {
+    const c = document.createElement('canvas');
+    const g2 = c.getContext('2d');
+    const font = "bold 44px 'Trebuchet MS', sans-serif";
+    g2.font = font;
+    c.width = Math.ceil(g2.measureText(text).width) + 40;
+    c.height = 64;
+    g2.font = font;
+    g2.fillStyle = 'rgba(8,44,66,0.82)';
+    g2.beginPath(); g2.roundRect(0, 0, c.width, c.height, 18); g2.fill();
+    g2.fillStyle = color; g2.textAlign = 'center'; g2.textBaseline = 'middle';
+    g2.fillText(text, c.width / 2, c.height / 2 + 2);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
+    sp.scale.set(c.width / 64 * 2.2, 2.2, 1);
+    return sp;
+  }
+  // civic buildings: sturdy public halls with columns and grand signs
+  function civic(x, z, w, d, h, wallCol, roofCol, label) {
+    const y = terrainHeight(x, z);
+    const g = new THREE.Group();
+    g.position.set(x, y, z);
+    const wall = new THREE.MeshStandardMaterial({ color: wallCol, roughness: 0.85 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wall);
+    body.position.y = h / 2;
+    g.add(body);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(w + 1, 0.5, d + 1),
+      new THREE.MeshStandardMaterial({ color: roofCol, roughness: 0.8 }));
+    roof.position.y = h + 0.25;
+    g.add(roof);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(2, 3.2, 0.2),
+      new THREE.MeshStandardMaterial({ color: 0x5a3b22, roughness: 0.9 }));
+    door.position.set(0, 1.6, d / 2 + 0.05);
+    g.add(door);
+    for (const sx of [-w / 3, w / 3]) {
+      const win = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 0.15), winMat);
+      win.position.set(sx, h * 0.55, d / 2 + 0.05);
+      g.add(win);
+    }
+    const sign = makeLabel(label);
+    sign.position.y = h + 2.2;
+    g.add(sign);
+    scene.add(g);
+    COLLIDERS.circles.push({ x: x - w / 4, z, r: d / 2 + 0.6 }, { x: x + w / 4, z, r: d / 2 + 0.6 });
+  }
+  civic(196, -80, 12, 8, 6.4, 0xe8e2d2, 0x8a4f9e, '🏛️ TOWN HALL');
+  civic(214, -80, 8, 7, 5.2, 0xd6e8f0, 0xc0574f, '📮 POST OFFICE');
+  civic(228, -80, 7, 6, 4.6, 0xffe8d0, 0x4fc08d, '☕ REEF CAFÉ');
+
+  // the park on Sunset Lane: pond, benches and flower beds
+  {
+    const px = 178, pz = 66;
+    const pond = new THREE.Mesh(new THREE.CircleGeometry(5, 24),
+      new THREE.MeshStandardMaterial({ color: 0x4fc3f7, emissive: 0x2fa3c7, emissiveIntensity: 0.3, roughness: 0.25 }));
+    pond.rotation.x = -Math.PI / 2;
+    pond.position.set(px, terrainHeight(px, pz) + 0.06, pz);
+    scene.add(pond);
+    COLLIDERS.circles.push({ x: px, z: pz, r: 5.2 });
+    const benchMat = new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: 0.9 });
+    for (const a of [0.6, 2.4, 4.2]) {
+      const bx = px + Math.cos(a) * 7.5, bz = pz + Math.sin(a) * 7.5;
+      const bench = new THREE.Group();
+      bench.position.set(bx, terrainHeight(bx, bz), bz);
+      bench.rotation.y = -a + Math.PI / 2;
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.16, 0.7), benchMat);
+      seat.position.y = 0.85; bench.add(seat);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.7, 0.12), benchMat);
+      back.position.set(0, 1.35, -0.32); bench.add(back);
+      for (const s of [-1, 1]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.85, 0.6), benchMat);
+        leg.position.set(s, 0.42, 0); bench.add(leg);
+      }
+      scene.add(bench);
+      COLLIDERS.circles.push({ x: bx, z: bz, r: 1.1 });
+    }
+    for (let i = 0; i < 14; i++) {
+      const a = R() * Math.PI * 2, r = 9 + R() * 5;
+      const fx = px + Math.cos(a) * r, fz = pz + Math.sin(a) * r;
+      const flower = new THREE.Mesh(new THREE.SphereGeometry(0.28 + R() * 0.2, 8, 6),
+        new THREE.MeshStandardMaterial({ color: [0xff6fb5, 0xffd23f, 0xff8a5c, 0xb98aff][i % 4], roughness: 0.8 }));
+      flower.position.set(fx, terrainHeight(fx, fz) + 0.3, fz);
+      scene.add(flower);
+    }
+  }
+
+  // golf buggies: two of them, parked by the Market Square — hop in and drive!
+  const buggies = [];
+  function buggy(x, z, bodyCol) {
+    const g = new THREE.Group();
+    g.position.set(x, terrainHeight(x, z), z);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.5, 3.3),
+      new THREE.MeshStandardMaterial({ color: bodyCol, roughness: 0.5, metalness: 0.2 }));
+    body.position.y = 0.75;
+    g.add(body);
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.3, 1.1),
+      new THREE.MeshStandardMaterial({ color: 0xfff8f0, roughness: 0.8 }));
+    seat.position.set(0, 1.15, -0.3);
+    g.add(seat);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 0.18),
+      new THREE.MeshStandardMaterial({ color: 0xfff8f0, roughness: 0.8 }));
+    back.position.set(0, 1.7, -0.9);
+    g.add(back);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.9 });
+    const wheels = [];
+    for (const [wx, wz] of [[-1, 1.15], [1, 1.15], [-1, -1.15], [1, -1.15]]) {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.3, 12), wheelMat);
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(wx, 0.42, wz);
+      g.add(wheel);
+      wheels.push(wheel);
+    }
+    // striped sunshade roof on posts
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 3),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }));
+    roof.position.y = 2.75;
+    g.add(roof);
+    for (const [px2, pz2] of [[-0.95, 1.3], [0.95, 1.3], [-0.95, -1.3], [0.95, -1.3]]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.7, 6),
+        new THREE.MeshStandardMaterial({ color: 0xb9c4cc, metalness: 0.5, roughness: 0.4 }));
+      post.position.set(px2, 2, pz2);
+      g.add(post);
+    }
+    const wheel2 = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.05, 8, 14),
+      new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.6 }));
+    wheel2.position.set(-0.5, 1.7, 0.75);
+    wheel2.rotation.x = -0.9;
+    g.add(wheel2);
+    scene.add(g);
+    buggies.push({ group: g, wheels, driving: false, home: { x, z } });
+  }
+  buggy(138, 16, 0x4fc08d);
+  buggy(142.5, 16, 0xff8a5c);
+
+  // ---------- more to discover under the sea ----------
+  // a swaying kelp forest in the south sea
+  {
+    const kelpMat = new THREE.MeshStandardMaterial({ color: 0x2e7d4f, roughness: 0.9, side: THREE.DoubleSide });
+    const tops = [];
+    for (let i = 0; i < 34; i++) {
+      const kx = -44 + (R() - 0.5) * 34, kz = 76 + (R() - 0.5) * 30;
+      const floor = terrainHeight(kx, kz);
+      if (floor > -6) continue;
+      const h = Math.min(-floor - 1.5, 9 + R() * 5);
+      const strand = new THREE.Group();
+      strand.position.set(kx, floor, kz);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.16, h, 6), kelpMat);
+      stem.position.y = h / 2;
+      strand.add(stem);
+      for (let b = 1; b <= 4; b++) {
+        const blade = new THREE.Mesh(new THREE.SphereGeometry(0.55, 6, 5), kelpMat);
+        blade.scale.set(0.5, 1.6, 0.12);
+        blade.position.set(Math.sin(b * 2.4) * 0.5, (h * b) / 4.6, Math.cos(b * 2.4) * 0.4);
+        strand.add(blade);
+      }
+      scene.add(strand);
+      tops.push({ strand, phase: R() * Math.PI * 2 });
+    }
+    updatables.push((t) => {
+      for (const k of tops) k.strand.rotation.z = Math.sin(t * 0.8 + k.phase) * 0.08;
+    });
+  }
+  // a grand stone sea arch on the far west reef
+  {
+    const ax = -140, az = -55;
+    const floor = terrainHeight(ax, az);
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(7, 2.2, 10, 22, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0x7d8590, roughness: 1 }));
+    arch.position.set(ax, floor + 0.5, az);
+    scene.add(arch);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 7) * Math.PI;
+      const spot = new THREE.Mesh(new THREE.SphereGeometry(0.5 + R() * 0.4, 8, 6),
+        new THREE.MeshStandardMaterial({ color: [0xff6fb5, 0xffd23f, 0x6fffe0, 0xff8a5c][i % 4], roughness: 0.8 }));
+      spot.position.set(ax + Math.cos(a) * 7, floor + 0.6 + Math.sin(a) * 7, az + (R() - 0.5) * 2);
+      scene.add(spot);
+    }
+  }
 
   // ---------- the sunken shipwreck (free-roam exploration) ----------
   // An old merchant ship listing on the sea floor: swim in through the hull
@@ -760,5 +948,5 @@ export function buildWorld(scene) {
     }
   });
 
-  return { updatables, saleHouses };
+  return { updatables, saleHouses, buggies };
 }

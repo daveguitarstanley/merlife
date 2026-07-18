@@ -330,6 +330,51 @@ export function buildVillage(scene) {
     });
   });
 
+  // ---- the Shell Bank & Goldie the Banker (community pot lives here) ----
+  const bank = new THREE.Group();
+  {
+    const bx = 150, bz = -26;
+    const by = terrainHeight(bx, bz);
+    const stone = new THREE.MeshStandardMaterial({ color: 0xf0e6d0, roughness: 0.8 });
+    const gold = new THREE.MeshStandardMaterial({ color: 0xffd76a, roughness: 0.35, metalness: 0.5 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(11, 5.2, 7), stone);
+    body.position.y = 2.6;
+    bank.add(body);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(8.6, 2.6, 4), new THREE.MeshStandardMaterial({ color: 0x2e6f8e, roughness: 0.75 }));
+    roof.position.y = 6.3; roof.rotation.y = Math.PI / 4;
+    bank.add(roof);
+    for (const sx of [-4, -1.35, 1.35, 4]) {
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 4.6, 10), stone);
+      col.position.set(sx, 2.3, 3.85);
+      bank.add(col);
+    }
+    const steps = new THREE.Mesh(new THREE.BoxGeometry(9, 0.5, 1.8), stone);
+    steps.position.set(0, 0.25, 4.4);
+    bank.add(steps);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.4, 0.2), gold);
+    door.position.set(0, 1.7, 3.55);
+    bank.add(door);
+    const sign = makeTextSprite('🏦 SHELL BANK', { fontSize: 46, scale: 2.4, bg: 'rgba(40,30,4,0.85)', color: '#ffd76a' });
+    sign.position.y = 8.2;
+    bank.add(sign);
+    bank.position.set(bx, by, bz);
+    scene.add(bank);
+    COLLIDERS.circles.push({ x: bx - 3.5, z: bz, r: 4.2 }, { x: bx + 3.5, z: bz, r: 4.2 });
+  }
+  const banker = (() => {
+    const group = new THREE.Group();
+    const x = 150, z = -19.5;
+    group.position.set(x, terrainHeight(x, z), z);
+    group.rotation.y = Math.atan2(150 - x, 0 - z);   // welcomes from the plaza
+    group.add(makeVillager({ skin: 0xf3c9a5, hair: 'bun', hairColor: 0xe8c56c,
+      dress: 0x2e6f8e, sash: 0xffd76a, earrings: true }));
+    const label = makeTextSprite('🏦 Goldie the Banker', { fontSize: 36 });
+    label.position.y = 3.65;
+    group.add(label);
+    scene.add(group);
+    return { group };
+  })();
+
   // ambient villagers strolling the streets — the town feels lived-in
   const strollers = [];
   const strollLooks = [
@@ -362,6 +407,7 @@ export function buildVillage(scene) {
   return {
     npcs,
     homeless,
+    banker,
     update(t) {
       const dt = Math.min(0.1, Math.max(0.001, t - lastT));
       lastT = t;

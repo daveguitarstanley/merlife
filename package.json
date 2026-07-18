@@ -11,6 +11,7 @@
   "type": "module",
   "dependencies": {
     "playroomkit": "^0.0.97",
+    "qrcode": "^1.5.4",
     "three": "^0.185.1"
   },
   "devDependencies": {

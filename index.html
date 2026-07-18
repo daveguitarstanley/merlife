@@ -93,24 +93,18 @@
   #actions .lbl { display: block; font-size: 10px; color: #eafaff; margin-top: -2px;
     font-weight: 700; letter-spacing: .3px; }
 
-  /* elemental shield buttons */
-  #shields { position: fixed; left: 16px; top: 50%; transform: translateY(-50%);
-    display: none; flex-direction: column; gap: 12px; z-index: 15; }
-  body.playing #shields { display: flex; }
-  #shields button { width: 56px; height: 56px; border-radius: 50%; font-size: 24px;
-    border: 3px solid rgba(255,255,255,.45); position: relative; color: #fff;
-    text-shadow: 0 1px 3px rgba(0,0,0,.5); }
-  #shields button .cd { position: absolute; bottom: -4px; right: -4px; width: 22px;
-    height: 22px; border-radius: 50%; background: #fff; color: #053045;
-    font-size: 13px; font-weight: 800; display: none; align-items: center;
-    justify-content: center; }
-  #shields button.on { border-color: #fff; box-shadow: 0 0 16px rgba(255,255,255,.9);
-    transform: scale(1.14); }
-  #shields button.on .cd { display: flex; }
-  #shEarth { background: radial-gradient(circle at 30% 30%, #a97c50, #5d8a3c); }
-  #shWind  { background: radial-gradient(circle at 30% 30%, #ffffff, #6fc9dc); }
-  #shFire  { background: radial-gradient(circle at 30% 30%, #ffb347, #d63a20); }
-  #shWater { background: radial-gradient(circle at 30% 30%, #7fc9ff, #1663c7); }
+  /* boost dash button — big, left side, thumb-reach */
+  #btnBoost { position: fixed; left: 16px; top: 50%; transform: translateY(-50%);
+    display: none; z-index: 15; width: 78px; height: 78px; border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #8fe8ff, #1d6fd1);
+    border: 3px solid rgba(255,255,255,.6); color: #fff; font-size: 26px;
+    flex-direction: column; align-items: center; justify-content: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,.4); }
+  body.playing #btnBoost { display: flex; }
+  #btnBoost .lbl { display: block; font-size: 11px; font-weight: 800; letter-spacing: .5px; }
+  #boostPips { font-size: 12px; letter-spacing: 3px; color: #eafaff; }
+  #btnBoost.empty { filter: grayscale(.7) brightness(.75); }
+  #btnBoost:active { transform: translateY(-50%) scale(1.08); }
 
   /* bite flash */
   #hurt { position: fixed; inset: 0; pointer-events: none; z-index: 30; opacity: 0;
@@ -146,12 +140,23 @@
     padding: 10px 22px; border: 2px solid #fff; }
   #dlgBtns button.primary { background: linear-gradient(180deg, #7ef3d0, #2ec4b6); color: #043045; }
   #dlgBtns button.plain { background: rgba(255,255,255,.15); color: #eafaff; }
+  #pausePanel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    z-index: 40; width: min(380px, 90vw); background: rgba(8,44,66,.96);
+    border: 3px solid rgba(255,255,255,.35); border-radius: 22px; padding: 20px;
+    color: #eafaff; text-align: center; }
+  #pausePanel h3 { margin: 0 0 6px; font-size: 24px; }
+  #pauseMsg { margin: 0 0 6px; font-size: 15px; opacity: .9; }
+  #pauseResume { background: linear-gradient(180deg, #7ef3d0, #2ec4b6); color: #043045; }
+  #pauseExit { background: rgba(255,255,255,.15); color: #eafaff; }
   #coopPanel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
     z-index: 30; width: min(440px, 92vw); background: rgba(8,44,66,.94);
     border: 3px solid rgba(255,255,255,.35); border-radius: 22px; padding: 18px 20px;
     color: #eafaff; backdrop-filter: blur(6px); text-align: center; }
   #coopPanel h3 { margin: 0 0 8px; font-size: 22px; }
   #coopStatus { margin: 0 0 10px; font-size: 15px; opacity: .9; }
+  #coopQR { display: none; width: 164px; height: 164px; margin: 0 auto 10px;
+    border-radius: 14px; background: #fff; padding: 8px; box-sizing: border-box; }
+  #coopQR.show { display: block; }
   #coopLink { width: 100%; box-sizing: border-box; font-size: 13px; padding: 10px 12px;
     border-radius: 12px; border: 2px solid rgba(255,255,255,.3);
     background: rgba(255,255,255,.12); color: #eafaff; text-align: center; }
@@ -224,11 +229,11 @@
     #hearts { font-size: 20px; }
     #coins  { left: 128px; margin-top: 0; top: max(10px, env(safe-area-inset-top)); font-size: 15px; }
     #pearls { left: 232px; margin-top: 0; top: max(10px, env(safe-area-inset-top)); font-size: 15px; }
-    /* 2×2 shield pad above the joystick — everything for the left thumb */
-    body.playing #shields { display: grid; grid-template-columns: 46px 46px; gap: 8px;
-      left: 14px; top: auto; bottom: 132px; transform: none; }
-    #shields button { width: 46px; height: 46px; font-size: 19px; }
-    #shields button .cd { width: 18px; height: 18px; font-size: 11px; }
+    /* boost above the joystick — everything for the left thumb */
+    #btnBoost { left: 22px; top: auto; bottom: 130px; transform: none;
+      width: 64px; height: 64px; font-size: 20px; }
+    #btnBoost .lbl { font-size: 9px; }
+    #btnBoost:active { transform: scale(1.08); }
     #actions { right: 12px; top: 42%; transform: translateY(-74%); gap: 8px; }
     #actions button { width: 50px; height: 50px; font-size: 19px; }
     #actions .lbl { font-size: 8px; }
@@ -253,6 +258,7 @@
     <div id="coins">🐚 0</div>
     <div id="pearls">🫧 6</div>
     <div id="topRight">
+      <button id="pauseBtn" title="Pause">⏸️</button>
       <button id="coopBtn" title="Play with a friend">🤝</button>
       <button id="muteBtn" title="Sound">🔊</button>
       <button id="customizeBtn" title="Customize">🧜</button>
@@ -261,10 +267,22 @@
     <div id="hint"></div>
   </div>
 
+  <!-- Pause panel -->
+  <div id="pausePanel" class="hidden">
+    <h3>⏸️ Paused</h3>
+    <p id="pauseMsg">Taking a little rest on a rock…</p>
+    <div class="coopRow">
+      <button id="pauseResume">▶️ Keep playing</button>
+      <button id="pauseExit">🚪 Exit</button>
+    </div>
+    <p class="coopTip">Your game is always saved automatically 💾</p>
+  </div>
+
   <!-- Co-op share panel -->
   <div id="coopPanel" class="hidden">
     <h3>🤝 Play together!</h3>
     <p id="coopStatus">Opening your sea to friends…</p>
+    <canvas id="coopQR"></canvas>
     <input id="coopLink" readonly>
     <div class="coopRow">
       <button id="coopCopy">📋 Copy link</button>
@@ -282,13 +300,8 @@
     <div id="dlgBtns"></div>
   </div>
 
-  <!-- Elemental shields -->
-  <div id="shields">
-    <button id="shEarth" data-el="earth" title="Earth shield (1)">🪨<span class="cd"></span></button>
-    <button id="shWind" data-el="wind" title="Wind shield (2)">💨<span class="cd"></span></button>
-    <button id="shFire" data-el="fire" title="Fire shield (3)">🔥<span class="cd"></span></button>
-    <button id="shWater" data-el="water" title="Water shield (4)">💧<span class="cd"></span></button>
-  </div>
+  <!-- Boost dash -->
+  <button id="btnBoost" title="Boost dash (Q)">🚀<span class="lbl">BOOST</span><span id="boostPips">●●</span></button>
   <div id="hurt"></div>
 
   <!-- Action buttons -->

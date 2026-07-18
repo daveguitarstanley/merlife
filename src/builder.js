@@ -15,6 +15,7 @@ const CORAL_SPOT_COLORS = [0xff7f6b, 0xff6fb5, 0xffe66b, 0x6fdcff];
 export function makeStructure(type, kind) {
   const g = new THREE.Group();
   if (type === 'cave') {
+    // a big swim-through coral archway — glide right under it
     const arch = new THREE.Mesh(
       new THREE.TorusGeometry(2.0, 0.75, 10, 18, Math.PI),
       new THREE.MeshStandardMaterial({ color: 0x8a8f96, roughness: 1 }));
@@ -34,31 +35,54 @@ export function makeStructure(type, kind) {
       anem.position.set(1.3 * s, 0.45, 0.6);
       g.add(anem);
     }
+    g.scale.setScalar(2.4);
   } else if (type === 'house') {
+    // a grand hollow pearl dome — swim in through the archway, furnish inside!
+    const R = 5.2;
+    const doorW = 0.62;                                   // doorway wedge (radians)
     const pearlMat = new THREE.MeshStandardMaterial({
       color: 0xfdf3ff, roughness: 0.25, metalness: 0.15,
-      emissive: 0x334455, emissiveIntensity: 0.15,
+      emissive: 0x334455, emissiveIntensity: 0.15, side: THREE.DoubleSide,
     });
     const dome = new THREE.Mesh(
-      new THREE.SphereGeometry(1.8, 22, 14, 0, Math.PI * 2, 0, Math.PI / 2), pearlMat);
+      new THREE.SphereGeometry(R, 30, 18, doorW / 2, Math.PI * 2 - doorW, 0, Math.PI / 2), pearlMat);
+    dome.rotation.y = Math.PI / 2;                        // doorway gap faces +z
     g.add(dome);
-    const door = new THREE.Mesh(new THREE.CircleGeometry(0.6, 16),
-      new THREE.MeshStandardMaterial({ color: 0x30354a, roughness: 1 }));
-    door.position.set(0, 0.62, 1.72);
-    door.rotation.x = -0.25;
-    g.add(door);
+    g.userData.dollhouse = { r: R, mats: [pearlMat] };    // shell fades when you swim in
+    // pearly floor with a soft rug
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(R - 0.15, 28),
+      new THREE.MeshStandardMaterial({ color: 0xf6e7d7, roughness: 0.95 }));
+    floor.rotation.x = -Math.PI / 2; floor.position.y = 0.04;
+    g.add(floor);
+    const rug = new THREE.Mesh(new THREE.CircleGeometry(2.2, 20),
+      new THREE.MeshStandardMaterial({ color: 0xff9ec4, roughness: 0.9 }));
+    rug.rotation.x = -Math.PI / 2; rug.position.y = 0.07;
+    g.add(rug);
+    // shining doorway arch
+    const frame = new THREE.Mesh(new THREE.TorusGeometry(1.85, 0.24, 10, 16, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.3, emissive: 0x557788, emissiveIntensity: 0.25 }));
+    frame.position.set(0, 0.1, Math.cos(doorW / 2) * R - 0.35);
+    g.add(frame);
+    // porthole windows on the shell, either side of the door
     for (const s of [-1, 1]) {
-      const window_ = new THREE.Mesh(new THREE.CircleGeometry(0.3, 12),
-        new THREE.MeshStandardMaterial({ color: 0x9adcf0, emissive: 0x2a6a8a, emissiveIntensity: 0.6 }));
-      window_.position.set(1.45 * s, 0.85, 0.6);
-      window_.rotation.y = s * Math.PI / 2.6;
+      const a = s * 1.92;                                 // ±110° from the doorway
+      const h = 2.2, r = Math.sqrt(R * R - h * h) + 0.06;
+      const window_ = new THREE.Mesh(new THREE.CircleGeometry(0.85, 14),
+        new THREE.MeshStandardMaterial({ color: 0x9adcf0, emissive: 0x2a6a8a, emissiveIntensity: 0.6, side: THREE.DoubleSide }));
+      window_.position.set(Math.sin(a) * r, h, Math.cos(a) * r);
+      window_.lookAt(Math.sin(a) * r * 2, h, Math.cos(a) * r * 2);
       g.add(window_);
     }
-    const finial = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10),
+    // glowing pearl lamp inside
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xaee7ff, emissiveIntensity: 1.1, roughness: 0.2 }));
+    lamp.position.set(0, R * 0.72, 0);
+    g.add(lamp);
+    const finial = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12),
       new THREE.MeshStandardMaterial({
         color: 0xffffff, emissive: 0x8fd8f2, emissiveIntensity: 0.6, roughness: 0.2,
       }));
-    finial.position.y = 1.95;
+    finial.position.y = R + 0.35;
     g.add(finial);
   } else {
     // furniture
@@ -152,6 +176,7 @@ export class PearlSystem {
     this.blueprintIdx = 0;
     this.projectiles = [];
     this.sites = [];
+    this.dollhouses = [];        // built pearl homes: shell fades when inside
     this.oysters = [];
     this.sparkles = [];
 
@@ -219,6 +244,7 @@ export class PearlSystem {
     s.position.set(b.x, terrainHeight(b.x, b.z), b.z);
     s.rotation.y = b.ry || 0;
     this.scene.add(s);
+    if (s.userData.dollhouse) this.dollhouses.push({ group: s, ...s.userData.dollhouse, faded: false });
   }
 
   _sparkle(pos, n = 10) {
@@ -289,6 +315,21 @@ export class PearlSystem {
   }
 
   update(dt, t, playerPos, playing) {
+    // pearl-home dollhouse view: the shell turns glassy while you're inside
+    for (const d of this.dollhouses) {
+      const g = d.group.position;
+      const inside = playing
+        && Math.hypot(playerPos.x - g.x, playerPos.z - g.z) < d.r
+        && playerPos.y < g.y + d.r + 1;
+      if (inside !== d.faded) {
+        d.faded = inside;
+        for (const m of d.mats) {
+          m.transparent = true;
+          m.opacity = inside ? 0.35 : 1;
+          m.needsUpdate = true;
+        }
+      }
+    }
     // pearls in flight
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];

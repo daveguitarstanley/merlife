@@ -2,7 +2,7 @@
 // shared URL (…#r=CODE), makes their own character, and appears in your sea.
 // Only positions/looks are synced — each player keeps their own save, coins
 // and quests (the shared community pot comes later with Supabase).
-import { insertCoin, onPlayerJoin, myPlayer, getRoomCode, getParticipants } from 'playroomkit';
+import { insertCoin, onPlayerJoin, myPlayer, getRoomCode, getParticipants, setState, getState } from 'playroomkit';
 import { Character } from './character.js';
 import { makeTextSprite } from './village.js';
 
@@ -54,6 +54,20 @@ export class Net {
     return `${location.origin}${location.pathname}${location.hash}`;
   }
 
+  // ---- shared community pot (room-wide state) ----
+  setPot(v) { if (this.active) setState('pot', v, true); }
+  getPot() {
+    if (!this.active) return null;
+    const v = getState('pot');
+    return typeof v === 'number' ? v : null;
+  }
+  // on join, room and local pots converge to the larger of the two
+  syncPot(mine) {
+    const v = Math.max(this.getPot() ?? 0, mine);
+    this.setPot(v);
+    return v;
+  }
+
   setLook(look) {
     if (!this.me) return;
     this.me.setState('look', look, true);
@@ -61,7 +75,7 @@ export class Net {
   }
 
   // ~10 Hz state broadcast; remotes interpolate between packets
-  publish(pos, yaw, form, mode, speed, vy, camo) {
+  publish(pos, yaw, form, mode, speed, vy, camo, veh = -1) {
     if (!this.active) return;
     const now = performance.now();
     if (now - this._pubT < 100) return;
@@ -69,7 +83,7 @@ export class Net {
     this.me.setState('s', {
       x: +pos.x.toFixed(2), y: +pos.y.toFixed(2), z: +pos.z.toFixed(2),
       yaw: +yaw.toFixed(3), f: form, m: mode,
-      sp: +speed.toFixed(2), vy: +vy.toFixed(2), c: camo ? 1 : 0,
+      sp: +speed.toFixed(2), vy: +vy.toFixed(2), c: camo ? 1 : 0, v: veh,
     });
   }
 
