@@ -709,53 +709,66 @@ export function buildWorld(scene) {
     }
   }
 
-  // golf buggies: two of them, parked by the Market Square — hop in and drive!
+  // Golf buggies, drawn to REAL golf-cart proportions against the 2.9-u-tall
+  // player (≈1.66 u per real metre): a two-seat bench (driver left, friend
+  // right), windshield, steering wheel, and a roof with actual headroom —
+  // seated head tops out at ~3.2 u, roof underside is at 3.7 u.
   const buggies = [];
   function buggy(x, z, bodyCol) {
     const g = new THREE.Group();
     g.position.set(x, terrainHeight(x, z), z);
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.5, 3.3),
-      new THREE.MeshStandardMaterial({ color: bodyCol, roughness: 0.5, metalness: 0.2 }));
-    body.position.y = 0.75;
-    g.add(body);
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.3, 1.1),
-      new THREE.MeshStandardMaterial({ color: 0xfff8f0, roughness: 0.8 }));
-    seat.position.set(0, 1.15, -0.3);
-    g.add(seat);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 0.18),
-      new THREE.MeshStandardMaterial({ color: 0xfff8f0, roughness: 0.8 }));
-    back.position.set(0, 1.7, -0.9);
-    g.add(back);
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.9 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: bodyCol, roughness: 0.45, metalness: 0.25 });
+    const white = new THREE.MeshStandardMaterial({ color: 0xf4f8fa, roughness: 0.7 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.9 });
+    const chrome = new THREE.MeshStandardMaterial({ color: 0xb9c4cc, metalness: 0.6, roughness: 0.35 });
+    const add = (mesh, mx, my, mz, rx = 0, ry = 0, rz = 0) => {
+      mesh.position.set(mx, my, mz); mesh.rotation.set(rx, ry, rz); g.add(mesh); return mesh;
+    };
+    const box = (w, h, d, mat) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    // chassis floor + coloured body tub (side skirts hide seated legs)
+    add(box(2.1, 0.16, 3.9, dark), 0, 0.62, 0);
+    for (const s of [-1, 1]) add(box(0.14, 0.6, 3.9, bodyMat), 1.0 * s, 0.95, 0);
+    add(box(2.1, 0.9, 0.4, bodyMat), 0, 1.05, -1.75);           // rear panel
+    // front cowl (bonnet) + dashboard
+    add(box(2.1, 0.62, 1.2, bodyMat), 0, 1.0, 1.45);
+    add(box(2.0, 0.55, 0.25, bodyMat), 0, 1.55, 0.95);
+    // raked windshield in a chrome frame
+    const glass = add(new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.55),
+      new THREE.MeshStandardMaterial({ color: 0xcfeaff, transparent: true, opacity: 0.22,
+        roughness: 0.1, side: THREE.DoubleSide })), 0, 2.6, 1.02, -0.13);
+    for (const s of [-1, 1]) add(new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.6, 6), chrome),
+      0.97 * s, 2.6, 1.02 + Math.tan(0.13) * 0, -0.13);
+    // the two-seat bench: driver on the left, a friend on the right
+    add(box(1.95, 0.22, 1.05, white), 0, 1.28, -0.62);
+    add(box(1.95, 1.0, 0.2, white), 0, 1.9, -1.18, -0.12);
+    // steering wheel on the left seat
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.62, 6), chrome), -0.52, 1.85, 0.62, 0.95);
+    add(new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 8, 16), dark), -0.52, 2.12, 0.42, -0.62);
+    // roof on four posts (front pair raked with the windshield)
+    add(box(2.3, 0.12, 3.3, white), 0, 3.76, -0.15);
+    for (const s of [-1, 1]) {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 2.15, 6), chrome), 1.02 * s, 2.72, 1.28, -0.18);
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 2.3, 6), chrome), 1.02 * s, 2.6, -1.72);
+    }
+    // wheels with chrome hubs
     const wheels = [];
-    for (const [wx, wz] of [[-1, 1.15], [1, 1.15], [-1, -1.15], [1, -1.15]]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.3, 12), wheelMat);
+    for (const [wx, wz] of [[-1.05, 1.35], [1.05, 1.35], [-1.05, -1.35], [1.05, -1.35]]) {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 14), dark);
       wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(wx, 0.42, wz);
+      wheel.position.set(wx, 0.4, wz);
       g.add(wheel);
-      wheels.push(wheel);
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.32, 10), chrome);
+      hub.rotation.z = Math.PI / 2;
+      hub.position.set(wx, 0.4, wz);
+      g.add(hub);
+      wheels.push(wheel, hub);
     }
-    // striped sunshade roof on posts
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 3),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }));
-    roof.position.y = 2.75;
-    g.add(roof);
-    for (const [px2, pz2] of [[-0.95, 1.3], [0.95, 1.3], [-0.95, -1.3], [0.95, -1.3]]) {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.7, 6),
-        new THREE.MeshStandardMaterial({ color: 0xb9c4cc, metalness: 0.5, roughness: 0.4 }));
-      post.position.set(px2, 2, pz2);
-      g.add(post);
-    }
-    const wheel2 = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.05, 8, 14),
-      new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.6 }));
-    wheel2.position.set(-0.5, 1.7, 0.75);
-    wheel2.rotation.x = -0.9;
-    g.add(wheel2);
     scene.add(g);
     buggies.push({ group: g, wheels, driving: false, home: { x, z } });
   }
-  buggy(138, 16, 0x4fc08d);
-  buggy(142.5, 16, 0xff8a5c);
+  buggy(137, 16, 0x4fc08d);
+  buggy(141.6, 16, 0xff8a5c);
+  buggy(146.2, 16, 0x5a9cff);
 
   // ---------- more to discover under the sea ----------
   // a swaying kelp forest in the south sea

@@ -234,7 +234,18 @@ Random retrieval quests pulled from this list:
      `buggy()`, `world.buggies`) — 💬 "Hop in!", drive 12.5 u/s with the same
      steering, "Hop out" via same button, auto-eject at the waterline; in co-op
      the driver's buggy position mirrors on the friend's screen (`v` field in net
-     state). Underwater: swaying kelp forest (~(-44,76)), rainbow sea arch
+     state).
+     REDONE to real golf-cart proportions (user feedback: head poked through the
+     roof — ALWAYS scale props against the 2.9-u player): roof at 3.76 (seated
+     head ≈3.2, `SEAT_H` 1.75), two-seat bench (driver LEFT at `SEAT_X` 0.52,
+     passenger right), windshield, steering wheel, chrome hubs; THREE buggies
+     (green/orange/blue). PASSENGER SEAT: a friend walking up to a
+     remotely-driven buggy gets "🪑 Ride along!" → pinned to the right seat
+     (`passengerOf` in main.js; `b._remoteAt` marks remote-driven, 4 s staleness
+     auto-ejects when the driver leaves/quits). BUMPER CARS: driving into any
+     other buggy separates + reflects velocity with a shove, sparkle + "💥
+     BUMP!" (0.7 s cooldown). Buggies are solid to pedestrians (r 1.9 circle in
+     landBlocked, skipping the one you're sitting in). Underwater: swaying kelp forest (~(-44,76)), rainbow sea arch
      (~(-140,-55)).
   `__mer` additions: doBoost, boost, addPearls(n). Save v1 gains `pot`.
   NOTE: findInteract picks the NEAREST offer (npc/bank/buggy) — shop reach is

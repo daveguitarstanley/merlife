@@ -465,7 +465,7 @@ let insideHouse = -1;
 let insideWreck = false;
 function findInteract() {
   if (state !== 'play' || mode !== 'land' || dialogOpen) return null;
-  if (ridingBuggy) return { type: 'buggyOut', label: '🛑 Hop out' };
+  if (ridingBuggy || passengerOf) return { type: 'buggyOut', label: '🛑 Hop out' };
   // several things can be in reach at once — offer the NEAREST one
   let best = null, bestD = Infinity;
   const consider = (d, reach, it) => { if (d < reach && d < bestD) { best = it; bestD = d; } };
@@ -481,7 +481,8 @@ function findInteract() {
   for (const bg of world.buggies) {
     if (bg.driving) continue;
     const d = Math.hypot(bg.group.position.x - pos.x, bg.group.position.z - pos.z);
-    consider(d, 4.5, { type: 'buggy', buggy: bg, label: '🛺 Hop in!' });
+    if (remoteDriven(bg)) consider(d, 5.5, { type: 'buggySeat', buggy: bg, label: '🪑 Ride along!' });
+    else consider(d, 4.5, { type: 'buggy', buggy: bg, label: '🛺 Hop in!' });
   }
   if (best) return best;
   for (let i = 0; i < world.saleHouses.length; i++) {
@@ -507,22 +508,36 @@ function bankFlow() {
   showDialog(`Goldie: "Welcome to the Shell Bank! 🏦 The Community Pot holds ${save.pot} 🐚. ` +
     `Everyone in your sea can add coins — pool together to buy the big houses for villagers in need!"`, btns);
 }
-// ---- golf buggies: hop in, zoom around town ----
-let ridingBuggy = null;
+// ---- golf buggies: hop in and drive, or ride along on the passenger seat ----
+// The bench seats two: driver on the left (-0.52 across), friend on the right.
+const SEAT_H = 1.75;            // seated waist height above the ground
+const SEAT_X = 0.52;            // half the gap between the two seats
+let ridingBuggy = null;         // I'm driving this one
+let passengerOf = null;         // I'm riding shotgun in this one (friend drives)
+let bumpT = 0;                  // bumper-car effect cooldown
+function buggyRight(yaw) { return { x: Math.cos(yaw), z: -Math.sin(yaw) }; }
+function remoteDriven(b) { return performance.now() - (b._remoteAt || 0) < 4000; }
 function boardBuggy(b) {
   ridingBuggy = b;
   b.driving = true;
+  // slide into the driver's seat, facing the way the buggy is parked
+  charYaw = b.group.rotation.y;
+  const r = buggyRight(charYaw);
+  pos.x = b.group.position.x - r.x * SEAT_X;
+  pos.z = b.group.position.z - r.z * SEAT_X;
+  vel.set(0, 0, 0);
   audio.chime([523.25, 659.25]);
   toast('🛺 Beep beep! Off we go!');
   setHint(isTouch ? '🕹️ drive • 💬 button to hop out' : '⬅️➡️ steer • ⬆️ drive • E to hop out');
 }
 function unboardBuggy() {
-  const b = ridingBuggy;
-  ridingBuggy = null;
-  b.driving = false;
-  // step out to the side of the buggy
-  pos.x += Math.sin(charYaw + Math.PI / 2) * 2.2;
-  pos.z += Math.cos(charYaw + Math.PI / 2) * 2.2;
+  const b = ridingBuggy || passengerOf;
+  if (ridingBuggy) { ridingBuggy.driving = false; ridingBuggy = null; }
+  passengerOf = null;
+  // step out clear of the buggy
+  const yaw = b.group.rotation.y;
+  pos.x = b.group.position.x + buggyRight(yaw).x * 2.6;
+  pos.z = b.group.position.z + buggyRight(yaw).z * 2.6;
   toast('🛺 Parked! See you next ride.');
   setHint(isTouch ? '🕹️ walk • 🐰 JUMP to hop' : '⬅️➡️ steer • ⬆️ walk ahead • Space jump');
 }
@@ -531,6 +546,12 @@ function doInteract() {
   if (currentInteract.type === 'house') { buyFlow(currentInteract.i); return; }
   if (currentInteract.type === 'bank') { bankFlow(); return; }
   if (currentInteract.type === 'buggy') { boardBuggy(currentInteract.buggy); return; }
+  if (currentInteract.type === 'buggySeat') {
+    passengerOf = currentInteract.buggy;
+    audio.chime([659.25, 783.99]);
+    toast('🪑 Road trip! Your friend is driving.');
+    return;
+  }
   if (currentInteract.type === 'buggyOut') { unboardBuggy(); return; }
   const q = currentInteract.npc.quest;
   const st = save.quests;
@@ -607,6 +628,13 @@ function landBlocked(x, z) {
     if (Math.abs(lx) < W - T - PLAYER_R && Math.abs(lz) < D - T - PLAYER_R) continue; // inside the room
     if (lz > 0 && Math.abs(lx) < 0.95 * h.s - 0.15) continue;                  // the doorway
     return true;
+  }
+  // buggies are solid too (not the one we're sitting in)
+  for (const b of world.buggies) {
+    if (b === ridingBuggy || b === passengerOf) continue;
+    const dx = x - b.group.position.x, dz = z - b.group.position.z;
+    const r = 1.9 + PLAYER_R;
+    if (dx * dx + dz * dz < r * r) return true;
   }
   return false;
 }
@@ -747,6 +775,23 @@ function updatePlay(dt) {
   const mv = controls.getMove();
   _dbg.mv = mv;
 
+  // riding shotgun: pinned to the passenger seat, the driver does the work
+  if (passengerOf) {
+    const bg = passengerOf.group;
+    if (!remoteDriven(passengerOf)) {           // driver hopped out / left
+      unboardBuggy();
+    } else {
+      charYaw = bg.rotation.y;
+      const r = buggyRight(charYaw);
+      pos.x = bg.position.x + r.x * SEAT_X;
+      pos.z = bg.position.z + r.z * SEAT_X;
+      pos.y = terrainHeight(pos.x, pos.z) + SEAT_H;
+      character.group.rotation.y = charYaw;
+      character.update(dt, { mode: 'land', speed: 0, vy: 0 });
+      return;
+    }
+  }
+
   // resting under camouflage: frozen in place, strength returns
   if (camo) {
     if (Math.hypot(mv.x, mv.z) > 0.25 || controls.up || controls.down) {
@@ -839,11 +884,35 @@ function updatePlay(dt) {
       : terrainHeight(pos.x, pos.z);
 
     if (ridingBuggy) {
-      // sitting proud on the buggy bench; the buggy follows the driver
+      // seated in the LEFT seat; the buggy centre sits half a seat to my right
       vy = 0; onGround = true;
-      pos.y = ground + 2.05;
+      const r = buggyRight(charYaw);
+      let cx = pos.x + r.x * SEAT_X, cz = pos.z + r.z * SEAT_X;
+      // bumper cars! bounce off any other buggy
+      if (bumpT > 0) bumpT -= dt;
+      for (const other of world.buggies) {
+        if (other === ridingBuggy) continue;
+        const op = other.group.position;
+        const dx = cx - op.x, dz = cz - op.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 0.01 && d < 2.9) {
+          const nx = dx / d, nz = dz / d;
+          cx = op.x + nx * 2.9; cz = op.z + nz * 2.9;      // separate
+          const dot = vel.x * nx + vel.z * nz;
+          vel.x += (-2 * dot) * nx + nx * 7;                // reflect + shove
+          vel.z += (-2 * dot) * nz + nz * 7;
+          if (bumpT <= 0) {
+            bumpT = 0.7;
+            audio.chime([196, 261.63]);
+            burstSparkles(new THREE.Vector3((cx + op.x) / 2, ground + 1, (cz + op.z) / 2));
+            toast('💥 BUMP!', 1200);
+          }
+        }
+      }
+      pos.x = cx - r.x * SEAT_X; pos.z = cz - r.z * SEAT_X;
+      pos.y = ground + SEAT_H;
       const bg = ridingBuggy.group;
-      bg.position.set(pos.x, ground, pos.z);
+      bg.position.set(cx, ground, cz);
       bg.rotation.y = charYaw;
       const spin = Math.hypot(vel.x, vel.z) * dt * 2.2;
       for (const w of ridingBuggy.wheels) w.rotation.x += spin;
@@ -1081,14 +1150,17 @@ function tick(dt) {
   if (net.active) {
     const rp = net.getPot();                    // friend fed the pot? take it
     if (rp !== null && rp !== save.pot) { save.pot = rp; saveGame(); }
-    // a friend driving a buggy drives OUR copy of that buggy too
+    // a friend driving a buggy drives OUR copy of that buggy too — the driver
+    // sits in the LEFT seat, so the buggy centre is half a seat to their right
     for (const r of net.remotes.values()) {
       const s = r.p.getState('s');
       if (!s || typeof s.v !== 'number' || s.v < 0) continue;
       const b = world.buggies[s.v];
       if (!b || b === ridingBuggy) continue;
-      b.group.position.set(s.x, terrainHeight(s.x, s.z), s.z);
+      const br = buggyRight(s.yaw);
+      b.group.position.set(s.x + br.x * SEAT_X, terrainHeight(s.x, s.z), s.z + br.z * SEAT_X);
       b.group.rotation.y = s.yaw;
+      b._remoteAt = performance.now();
     }
   }
 
