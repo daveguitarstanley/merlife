@@ -201,6 +201,19 @@
   #btnUp   { bottom: 108px; }
   #btnDown { bottom: 28px; }
   .udBtn:active, .udBtn.pressed { background: rgba(126,243,208,.75); color: #043045; }
+
+  /* Landscape mobile: reposition buttons to avoid HUD overlap */
+  @media (orientation: landscape) and (max-height: 500px) {
+    #actions { top: auto; bottom: 20px; transform: none; gap: 8px; flex-direction: row; }
+    #actions button { width: 52px; height: 52px; font-size: 22px; }
+    #shields { top: auto; bottom: 20px; left: auto; right: 90px; transform: none; gap: 8px; flex-direction: row; }
+    #shields button { width: 50px; height: 50px; font-size: 20px; }
+    #shields button .cd { width: 18px; font-size: 8px; }
+    #btnUp   { bottom: 20px; width: 52px; height: 52px; font-size: 20px; }
+    #btnDown { display: none; }
+    #stick { width: 100px; height: 100px; bottom: 20px; left: 16px; }
+    #stickKnob { width: 36px; height: 36px; }
+  }
 </style>
 </head>
 <body>

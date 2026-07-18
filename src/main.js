@@ -644,6 +644,10 @@ const creatorUI = setupCreator(config,
     document.body.classList.add('playing');
     state = 'play';
     controls.enabled = true;
+    // on mobile, try to go fullscreen for immersive play
+    if (document.documentElement.requestFullscreen && /mobile|android|iphone/i.test(navigator.userAgent)) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
     // snap the camera straight behind the character so "forward" means forward
     const yaw = character.group.rotation.y;
     const dist = mode === 'water' ? 7.5 : 8.5;
