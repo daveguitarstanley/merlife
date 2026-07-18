@@ -9,6 +9,7 @@ import { PearlSystem, PEARL_CAP } from './builder.js';
 import { NastyFish, ELEMENTS } from './enemy.js';
 import { QUESTS } from './quests.js';
 import { buildVillage, makeTextSprite } from './village.js';
+import { Net } from './net.js';
 
 // ---------------------------------------------------------------- setup
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -594,8 +595,47 @@ function toWater() {
   setHint(isTouch ? 'Steer left/right • ⬆️⬇️ rise & dive' : '⬅️➡️ steer • ⬆️ swim ahead • Space up • Shift down • F pearl • B blueprint • X rest');
 }
 
+// ---------------------------------------------------------------- co-op
+const net = new Net();
+const coopPanel = document.getElementById('coopPanel');
+const coopStatus = document.getElementById('coopStatus');
+const coopLinkEl = document.getElementById('coopLink');
+
+async function startCoop(showPanel) {
+  if (showPanel) {
+    coopPanel.classList.remove('hidden');
+    coopStatus.textContent = 'Opening your sea to friends…';
+    coopLinkEl.value = '';
+  }
+  try {
+    const link = await net.start(scene, character.config);
+    document.getElementById('coopBtn').classList.add('live');
+    net.onFriends = (n) => toast(n > 0 ? '💙 A sea friend is here!' : 'Your friend swam away… 🌊', 3000);
+    if (showPanel) {
+      coopStatus.textContent = 'Your sea is open! Share this link:';
+      coopLinkEl.value = link;
+    } else {
+      toast("🌊 Splash! You're in your friend's sea!", 3600);
+    }
+  } catch (e) {
+    if (showPanel) coopStatus.textContent = 'Could not reach the ocean — check the internet and try again 🌊';
+    else toast('Could not join — check the internet 🌊', 3600);
+  }
+}
+document.getElementById('coopBtn').addEventListener('click', () => startCoop(true));
+document.getElementById('coopClose').addEventListener('click', () => coopPanel.classList.add('hidden'));
+document.getElementById('coopCopy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(coopLinkEl.value);
+    document.getElementById('coopCopy').textContent = '✅ Copied!';
+    setTimeout(() => { document.getElementById('coopCopy').textContent = '📋 Copy link'; }, 1600);
+  } catch (e) {
+    coopLinkEl.select();
+  }
+});
+
 const creatorUI = setupCreator(config,
-  (cfg) => { character.setConfig(cfg); saveConfig(cfg); },
+  (cfg) => { character.setConfig(cfg); saveConfig(cfg); net.setLook(cfg); },
   () => {
     audio.init();
     audio.chime();
@@ -612,7 +652,9 @@ const creatorUI = setupCreator(config,
       pos.y + (mode === 'water' ? 2.6 : 3.4),
       pos.z - Math.cos(yaw) * dist);
     camera.lookAt(pos.x, pos.y + 1, pos.z);
-    toast('Welcome home, little mer! Swim toward the sunny island! ☀️', 3800);
+    // arrived via a friend's share link → splash straight into their sea
+    if (/^#r=/.test(location.hash) && !net.active) startCoop(false);
+    else toast('Welcome home, little mer! Swim toward the sunny island! ☀️', 3800);
     setHint(isTouch ? 'Steer left/right • ⬆️⬇️ rise & dive' : '⬅️➡️ steer • ⬆️ swim ahead • Space up • Shift down • F pearl • B blueprint • X rest');
   },
   () => save.unlocks);
@@ -798,6 +840,7 @@ function updateAtmosphere() {
 
 // debug handle for automated play-testing
 window.__mer = {
+  net,
   get pos() { return { x: pos.x, y: pos.y, z: pos.z }; },
   get mode() { return mode; },
   get state() { return state; },
@@ -956,6 +999,9 @@ function tick(dt) {
       interactBtn.classList.add('hidden');
     }
   }
+
+  net.publish(pos, charYaw, character.form, mode, Math.hypot(vel.x, vel.z), vel.y, camo);
+  net.update(dt);
 
   updateSparkles(dt);
   updateCamera(dt);

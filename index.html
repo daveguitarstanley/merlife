@@ -146,6 +146,22 @@
     padding: 10px 22px; border: 2px solid #fff; }
   #dlgBtns button.primary { background: linear-gradient(180deg, #7ef3d0, #2ec4b6); color: #043045; }
   #dlgBtns button.plain { background: rgba(255,255,255,.15); color: #eafaff; }
+  #coopPanel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    z-index: 30; width: min(440px, 92vw); background: rgba(8,44,66,.94);
+    border: 3px solid rgba(255,255,255,.35); border-radius: 22px; padding: 18px 20px;
+    color: #eafaff; backdrop-filter: blur(6px); text-align: center; }
+  #coopPanel h3 { margin: 0 0 8px; font-size: 22px; }
+  #coopStatus { margin: 0 0 10px; font-size: 15px; opacity: .9; }
+  #coopLink { width: 100%; box-sizing: border-box; font-size: 13px; padding: 10px 12px;
+    border-radius: 12px; border: 2px solid rgba(255,255,255,.3);
+    background: rgba(255,255,255,.12); color: #eafaff; text-align: center; }
+  .coopRow { display: flex; gap: 10px; justify-content: center; margin: 12px 0 6px; }
+  .coopRow button { font-size: 16px; font-weight: 800; border-radius: 999px;
+    padding: 10px 22px; border: 2px solid #fff; pointer-events: auto; }
+  #coopCopy { background: linear-gradient(180deg, #7ef3d0, #2ec4b6); color: #043045; }
+  #coopClose { background: rgba(255,255,255,.15); color: #eafaff; }
+  .coopTip { margin: 6px 0 0; font-size: 13px; opacity: .8; line-height: 1.4; }
+  #coopBtn.live { border-color: #7ef3d0; box-shadow: 0 0 12px rgba(126,243,208,.7); }
   #topRight { position: absolute; top: max(10px, env(safe-area-inset-top)); right: 12px;
     display: flex; gap: 8px; }
   #topRight button {
@@ -196,11 +212,25 @@
     <div id="coins">🐚 0</div>
     <div id="pearls">🫧 6</div>
     <div id="topRight">
+      <button id="coopBtn" title="Play with a friend">🤝</button>
       <button id="muteBtn" title="Sound">🔊</button>
       <button id="customizeBtn" title="Customize">🧜</button>
     </div>
     <div id="toast"></div>
     <div id="hint"></div>
+  </div>
+
+  <!-- Co-op share panel -->
+  <div id="coopPanel" class="hidden">
+    <h3>🤝 Play together!</h3>
+    <p id="coopStatus">Opening your sea to friends…</p>
+    <input id="coopLink" readonly>
+    <div class="coopRow">
+      <button id="coopCopy">📋 Copy link</button>
+      <button id="coopClose">✖</button>
+    </div>
+    <p class="coopTip">Send the link to a friend — they make their own
+      mer-character and splash into <b>your</b> sea!</p>
   </div>
 
   <!-- Quest tracker, talk button, dialog -->

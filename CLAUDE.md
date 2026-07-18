@@ -167,9 +167,22 @@ Random retrieval quests pulled from this list:
   (repulsion from COLLIDERS); mermaid gown got a fixed hip yoke with the swaying
   skirt pivoting from the yoke hem (no waist gap); dialog buttons ignore
   double-taps (no double coin deduction).
-- **Phase 4b: Co-op Multiplayer** — PARKED (user request 2026-07-18). Recommended:
-  Playroom Kit (join-by-link, free tier) — needs the user's go-ahead since it's an
-  external service; alternative Colyseus self-hosted.
+- **Phase 4b: Co-op Multiplayer** — ✅ BUILT & 2-tab tested 2026-07-18 (Playroom Kit).
+  `src/net.js` (`Net`): 🤝 HUD button opens the co-op panel → `insertCoin({ gameId,
+  skipLobby: true })` → share link shown + copy button. Friend opens the link
+  (`#r=CODE` hash), makes their own character, auto-joins on Dive In ("Splash!
+  You're in your friend's sea!"). 10 Hz state broadcast (pos/yaw/form/mode/speed/
+  camo) + look config w/ version counter (mirror edits rebuild the remote avatar);
+  remotes lerp (k=dt*8) and run the full Character animator, name tag sprite
+  (💙 profile name). Toasts on friend join/leave; 🤝 glows while live.
+  GOTCHA: Playroom's URL hash is `#r=` + prefix char + code; `getRoomCode()`
+  strips the prefix — always share `location.hash` verbatim, never rebuild it.
+  Each player keeps their own save/coins/quests (shared community pot = Supabase,
+  later). Game ID from `VITE_PLAYROOM_GAME_ID` (.env.local + Vercel env).
+  DEPLOY: GitHub daveguitarstanley/merlife → Vercel (Vite preset, auto-deploy on
+  push to main). Env vars in Vercel dashboard. Secrets live in .env.local
+  (gitignored); .env.example is the committed template. Supabase project exists
+  but is NOT wired yet (anon key only in .env.local, unused).
   TODO list — ✅ ALL BUILT & sim-tested 2026-07-18 except multiplayer itself:
   - ✅ House floor z-fighting fixed (floor box shrunk inside the walls, raised to 0.08).
   - ✅ Infinite coin economy: every completed quest giver offers a REPEATABLE re-fetch
